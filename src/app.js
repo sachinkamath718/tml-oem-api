@@ -118,12 +118,18 @@ app.use((err, _req, res, _next) => {
     res.status(500).json({ success: false, message: 'Internal server error.' });
 });
 
-// ─── Start server ─────────────────────────────────────────────
-app.listen(PORT, () => {
-    console.log(`TML OEM API running on http://localhost:${PORT}`);
-    console.log(`Available endpoints:`);
-    console.log(`  POST  /api/auth/token       → Generate token`);
-    console.log(`  POST  /api/orders/create    → Create order`);
-    console.log(`  GET   /api/orders/status    → Get order status`);
-    console.log(`  GET   /health               → Health check`);
-});
+// ─── Start server (local only) ────────────────────────────────
+// On Vercel, the app is exported and used as a serverless function.
+// Locally, it starts a normal HTTP server.
+if (process.env.VERCEL !== '1') {
+    app.listen(PORT, () => {
+        console.log(`TML OEM API running on http://localhost:${PORT}`);
+        console.log(`Available endpoints:`);
+        console.log(`  POST  /api/auth/token       → Generate token`);
+        console.log(`  POST  /api/orders/create    → Create order`);
+        console.log(`  GET   /api/orders/status    → Get order status`);
+        console.log(`  GET   /health               → Health check`);
+    });
+}
+
+module.exports = app;
