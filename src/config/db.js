@@ -6,10 +6,13 @@ const pool = mysql.createPool({
     port:               parseInt(process.env.DB_PORT || '3306'),
     user:               process.env.DB_USER     || 'root',
     password:           process.env.DB_PASSWORD || '',
-    database:           process.env.DB_NAME     || 'tml_oem_db',
+    database:           process.env.DB_NAME     || 'railway',
     waitForConnections: true,
-    connectionLimit:    10,
+    connectionLimit:    2,      // Keep low for serverless
     queueLimit:         0,
+    connectTimeout:     30000,  // 30s timeout for cold starts
+    ssl:                { rejectUnauthorized: false }, // Required for Railway
 });
 
 module.exports = pool;
+
