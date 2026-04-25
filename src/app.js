@@ -20,6 +20,20 @@ app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'TML OEM API', time: new Date().toISOString() });
 });
 
+// ─── Temp debug (remove after fixing) ─────────────────────────
+app.get('/debug-env', (_req, res) => {
+    res.json({
+        DB_HOST:     process.env.DB_HOST     ? `${process.env.DB_HOST.substring(0,10)}...` : 'NOT SET',
+        DB_PORT:     process.env.DB_PORT     || 'NOT SET',
+        DB_USER:     process.env.DB_USER     || 'NOT SET',
+        DB_PASSWORD: process.env.DB_PASSWORD ? 'SET (hidden)' : 'NOT SET',
+        DB_NAME:     process.env.DB_NAME     || 'NOT SET',
+        JWT_SECRET:  process.env.JWT_SECRET  ? 'SET (hidden)' : 'NOT SET',
+        VERCEL:      process.env.VERCEL      || 'NOT SET',
+        NODE_ENV:    process.env.NODE_ENV    || 'NOT SET',
+    });
+});
+
 // ─── Landing page ─────────────────────────────────────────────
 app.get('/', (_req, res) => {
     res.send(`<!DOCTYPE html>
