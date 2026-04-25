@@ -1,0 +1,114 @@
+{
+  "info": {
+    "name": "TML OEM API",
+    "description": "TML OEM Integration — Token, Orders, Status APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "token",    "value": "",                      "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Generate Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var res = pm.response.json();",
+              "if (res.success && res.data && res.data.access_token) {",
+              "  pm.collectionVariables.set('token', res.data.access_token);",
+              "  console.log('Token saved automatically.');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/token",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"tml-client-id\",\n  \"client_secret\": \"tml-client-secret\"\n}"
+        },
+        "description": "Generates a Bearer JWT token valid for 12 hours.\n\nThe token is **automatically saved** to the `token` collection variable — no need to copy-paste it manually."
+      }
+    },
+    {
+      "name": "2. Create Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/api/orders/create",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"oem_name\": \"Tata Motors\",\n  \"vehicles\": [\n    { \"vin\": \"VIN-A001\", \"dispatch_location\": \"Mumbai Warehouse\" },\n    { \"vin\": \"VIN-A002\", \"dispatch_location\": \"Delhi Hub\" },\n    { \"vin\": \"VIN-A003\", \"dispatch_location\": \"Mumbai Warehouse\" }\n  ]\n}"
+        },
+        "description": "Creates a new order.\n\n**Rules:**\n- One order = one shared `tracking_id` across Shipment, Delivery, Installation\n- One VIN = one unique `ticket_id`\n- Multiple dispatch locations allowed in one order\n\n⚠️ Run **Generate Token** first — Bearer token is injected automatically."
+      }
+    },
+    {
+      "name": "3. Order Status — by order_number",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/status?order_number=ORD-20260425-A5D5C2",
+          "host": ["{{base_url}}"],
+          "path": ["api", "orders", "status"],
+          "query": [{ "key": "order_number", "value": "ORD-20260425-A5D5C2" }]
+        },
+        "description": "Get full order status by `order_number`.\n\nReturns:\n- Order details and status\n- All vehicle tickets (1 per VIN)\n- Dispatch location summary\n- Full audit history"
+      }
+    },
+    {
+      "name": "3b. Order Status — by tracking_id",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/status?tracking_id=TRK-1777141989930-2BC129",
+          "host": ["{{base_url}}"],
+          "path": ["api", "orders", "status"],
+          "query": [{ "key": "tracking_id", "value": "TRK-1777141989930-2BC129" }]
+        },
+        "description": "Get order status using the shared `tracking_id` (same ID used across Shipment, Delivery, Installation)."
+      }
+    },
+    {
+      "name": "3c. Order Status — by VIN",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/status?vin=VIN-A001",
+          "host": ["{{base_url}}"],
+          "path": ["api", "orders", "status"],
+          "query": [{ "key": "vin", "value": "VIN-A001" }]
+        },
+        "description": "Get order status by looking up a specific VIN."
+      }
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health",
+        "description": "Check if the API server is running."
+      }
+    }
+  ]
+}
