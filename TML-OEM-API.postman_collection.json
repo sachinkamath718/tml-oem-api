@@ -12,7 +12,7 @@
   "item": [
     {
       "name": "1. Generate Token",
-      "event": [{ "listen": "test", "script": { "exec": ["var r=pm.response.json(); if(r.access_token){pm.collectionVariables.set('token',r.access_token);}"], "type": "text/javascript" } }],
+      "event": [{ "listen": "test", "script": { "exec": ["var r=pm.response.json(); var t=r.access_token||(r.data&&r.data.access_token); if(t){pm.collectionVariables.set('token',t);}"], "type": "text/javascript" } }],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
