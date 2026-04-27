@@ -3,59 +3,73 @@ const pool = require('../config/db');
 
 /**
  * POST /api/auth/token
+ * Content-Type: application/x-www-form-urlencoded
  *
  * Request Body:
+ *   client_id=tml-client-id
+ *   client_secret=tml-client-secret
+ *   grant_type=client_credentials
+ *
+ * Success Response (200):
  * {
- *   "client_id": "tml-client-id",
- *   "client_secret": "tml-client-secret"
+ *   "message": "Token generated successfully",
+ *   "access_token": "<jwt>",
+ *   "expires_in": 43200,
+ *   "token_type": "Bearer"
  * }
  *
- * Response:
+ * Error Response (400/401):
  * {
- *   "success": true,
- *   "data": {
- *     "access_token": "<jwt>",
- *     "token_type": "Bearer",
- *     "expires_in": 43200
- *   }
+ *   "message": "...",
+ *   "access_token": null,
+ *   "expires_in": null,
+ *   "token_type": null
  * }
  */
 async function generateToken(req, res) {
-    const { client_id, client_secret } = req.body;
+    const { client_id, client_secret, grant_type } = req.body;
 
-    // --- 1. Validate input ---
-    if (!client_id || !client_secret) {
+    // ── Step 3: Validate mandatory fields ────────────────────────
+    if (!client_id || !client_secret || !grant_type) {
         return res.status(400).json({
-            success: false,
-            message: 'client_id and client_secret are required.',
+            message:      'Invalid request parameters',
+            access_token: null,
+            expires_in:   null,
+            token_type:   null,
+        });
+    }
+
+    if (grant_type !== 'client_credentials') {
+        return res.status(400).json({
+            message:      'Invalid request parameters',
+            access_token: null,
+            expires_in:   null,
+            token_type:   null,
         });
     }
 
     try {
-        // --- 2. Look up the client ---
+        // ── Step 4: Validate credentials from DB ─────────────────
         const [rows] = await pool.query(
-            'SELECT * FROM api_clients WHERE client_id = ? AND status = 1 LIMIT 1',
-            [client_id]
+            `SELECT * FROM api_clients
+             WHERE client_id = ? AND client_secret = ? AND status = 1
+             LIMIT 1`,
+            [client_id, client_secret]
         );
 
+        // ── Step 5: If credentials invalid ───────────────────────
         if (rows.length === 0) {
             return res.status(401).json({
-                success: false,
-                message: 'Invalid client_id or client is inactive.',
+                message:      'Invalid credentials',
+                access_token: null,
+                expires_in:   null,
+                token_type:   null,
             });
         }
 
         const client = rows[0];
 
-        // --- 3. Validate client_secret (plain comparison as per schema) ---
-        if (client.client_secret !== client_secret) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid client_secret.',
-            });
-        }
-
-        // --- 4. Create JWT payload ---
+        // ── Step 7 & 8: Create JWT payload & sign ─────────────────
         const EXPIRES_IN_SECONDS = 43200; // 12 hours
 
         const payload = {
@@ -70,7 +84,7 @@ async function generateToken(req, res) {
 
         const expires_at = new Date(Date.now() + EXPIRES_IN_SECONDS * 1000);
 
-        // --- 5. Log the token ---
+        // ── Step 9: Store token in DB ─────────────────────────────
         await pool.query(
             `INSERT INTO token_logs
                (client_ref_id, access_token, token_type, expires_in, expires_at)
@@ -78,21 +92,22 @@ async function generateToken(req, res) {
             [client.id, access_token, EXPIRES_IN_SECONDS, expires_at]
         );
 
-        // --- 6. Return token ---
+        // ── Step 10: Return success response ──────────────────────
         return res.status(200).json({
-            success: true,
-            message: 'Token generated successfully.',
-            data: {
-                access_token,
-                token_type: 'Bearer',
-                expires_in: EXPIRES_IN_SECONDS,
-                expires_at: expires_at.toISOString(),
-            },
+            message:      'Token generated successfully',
+            access_token,
+            expires_in:   EXPIRES_IN_SECONDS,
+            token_type:   'Bearer',
         });
 
     } catch (err) {
         console.error('[generateToken] Error:', err);
-        return res.status(500).json({ success: false, message: 'Internal server error.' });
+        return res.status(500).json({
+            message:      'Internal server error',
+            access_token: null,
+            expires_in:   null,
+            token_type:   null,
+        });
     }
 }
 
