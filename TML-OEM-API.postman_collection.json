@@ -17,8 +17,8 @@
           "script": {
             "exec": [
               "var res = pm.response.json();",
-              "if (res.access_token) {",
-              "  pm.collectionVariables.set('token', res.access_token);",
+              "if (res.data && res.data.access_token) {",
+              "  pm.collectionVariables.set('token', res.data.access_token);",
               "  console.log('Token saved automatically.');",
               "}"
             ],
