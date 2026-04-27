@@ -1,8 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 
-const authRoutes  = require('./routes/auth');
-const orderRoutes = require('./routes/orders');
+const authRoutes   = require('./routes/auth');
+const orderRoutes  = require('./routes/orders');
+const ais140Routes = require('./routes/ais140');
+const miningRoutes = require('./routes/mining');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +16,8 @@ app.use(express.urlencoded({ extended: true }));
 // ─── Routes ──────────────────────────────────────────────────
 app.use('/api/auth',   authRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/ais140', ais140Routes);
+app.use('/api/mining', miningRoutes);
 
 // ─── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {

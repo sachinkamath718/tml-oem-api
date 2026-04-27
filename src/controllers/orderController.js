@@ -1,139 +1,132 @@
 const pool = require('../config/db');
-const { generateOrderNumber, generateTrackingId, generateTicketId } = require('../utils/idGenerator');
+const { generateTrackingId, generateTicketId, generateOrderNumber } = require('../utils/idGenerator');
 
 /**
  * POST /api/orders/create
- *
- * Headers:
- *   Authorization: Bearer <token>
- *
- * Request Body:
- * {
- *   "oem_name": "Tata Motors",
- *   "vehicles": [
- *     { "vin": "VIN001", "dispatch_location": "Mumbai Warehouse" },
- *     { "vin": "VIN002", "dispatch_location": "Delhi Hub" },
- *     { "vin": "VIN003", "dispatch_location": "Mumbai Warehouse" }
- *   ]
- * }
- *
- * Rules:
- * - One order = one tracking_id shared across Shipment, Delivery, Installation
- * - One VIN = one unique ticket_id
- * - Multiple dispatch locations allowed within the same order
+ * Creates order with customer details, location_mappings, vehicle details, products
  */
-async function createOrder(req, res) {
-    const { oem_name, vehicles } = req.body;
-    const { client_ref_id, client_id } = req.client; // from JWT middleware
-
-    // --- Validate input ---
-    if (!vehicles || !Array.isArray(vehicles) || vehicles.length === 0) {
-        return res.status(400).json({
-            success: false,
-            message: '`vehicles` array is required and must contain at least one vehicle.',
-        });
-    }
-
-    // Check for duplicate VINs in request
-    const vins = vehicles.map(v => v.vin);
-    const uniqueVins = new Set(vins);
-    if (uniqueVins.size !== vins.length) {
-        return res.status(400).json({
-            success: false,
-            message: 'Duplicate VINs found in the request. Each vehicle must have a unique VIN.',
-        });
-    }
-
-    // Check VINs not already in DB
-    const [existingVins] = await pool.query(
-        `SELECT vin FROM order_vehicles WHERE vin IN (${vins.map(() => '?').join(',')})`,
-        vins
-    );
-    if (existingVins.length > 0) {
-        return res.status(409).json({
-            success: false,
-            message: `VINs already registered: ${existingVins.map(r => r.vin).join(', ')}`,
-        });
-    }
-
+const createOrder = async (req, res) => {
     const conn = await pool.getConnection();
     try {
+        const { order_id, device_type, customer_details, location_mappings } = req.body;
+        const clientId = req.client.client_id;
+        const clientRefId = req.client.client_ref_id;
+
+        if (!location_mappings || !Array.isArray(location_mappings) || location_mappings.length === 0) {
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'location_mappings is required and must be a non-empty array.' }, data: null });
+        }
+
+        // Flatten all vehicles
+        const allVehicles = [];
+        for (const mapping of location_mappings) {
+            const { location, spoc, vehicle_details } = mapping;
+            if (!vehicle_details || !Array.isArray(vehicle_details)) continue;
+            for (const v of vehicle_details) {
+                if (!v.vin) return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Each vehicle must have a vin.' }, data: null });
+                allVehicles.push({ ...v, location, spoc });
+            }
+        }
+
+        if (allVehicles.length === 0) {
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'No vehicles found in location_mappings.' }, data: null });
+        }
+
+        const orderNumber  = generateOrderNumber();
+        const trackingId   = generateTrackingId();
+        const orderCreatedAt = new Date().toISOString();
+
         await conn.beginTransaction();
 
-        // --- Generate IDs ---
-        const order_number = generateOrderNumber();
-        const tracking_id  = generateTrackingId(); // Shared across modules: Orders, Shipment, Delivery, Installation
-
-        // --- Insert order ---
-        const [orderResult] = await conn.query(
-            `INSERT INTO orders
-               (order_number, tracking_id, client_ref_id, oem_name, total_vehicles, status, created_by)
-             VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-            [order_number, tracking_id, client_ref_id, oem_name || null, vehicles.length, client_id]
+        // Insert order
+        const [orderResult] = await conn.execute(
+            `INSERT INTO orders (order_number, tml_order_id, tracking_id, client_ref_id, oem_name, device_type, total_vehicles, status, customer_details, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+            [
+                orderNumber,
+                order_id || null,
+                trackingId,
+                clientRefId,
+                customer_details?.name || null,
+                device_type || null,
+                allVehicles.length,
+                JSON.stringify(customer_details || {}),
+                clientId,
+            ]
         );
-        const order_id = orderResult.insertId;
+        const orderId = orderResult.insertId;
 
-        // --- Create one ticket per VIN ---
+        // Insert vehicles + SPOC details
         const tickets = [];
-        for (const vehicle of vehicles) {
-            const ticket_id = generateTicketId();
+        for (const vehicle of allVehicles) {
+            const ticketId = generateTicketId();
+            const hasAIS140  = (vehicle.products || []).some(p => p.name === 'AIS140');
+            const hasMINING  = (vehicle.products || []).some(p => p.name === 'MINING');
+            const ais140TicketNo = hasAIS140 ? `AIS-${ticketId}` : null;
+            const miningTicketNo = hasMINING  ? `MIN-${ticketId}` : null;
 
-            await conn.query(
+            await conn.execute(
                 `INSERT INTO order_vehicles
-                   (order_id, vin, ticket_id, tracking_id, dispatch_location, status)
-                 VALUES (?, ?, ?, ?, ?, 'pending')`,
-                [order_id, vehicle.vin, ticket_id, tracking_id, vehicle.dispatch_location || null]
+                 (order_id, vin, ticket_id, tracking_id, dispatch_location,
+                  registration_no, engine_no, model, make, variant, mfg_year,
+                  fuel_type, emission_type, rto_office_code, rto_state,
+                  products, ais140_ticket_no, mining_ticket_no, status)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending')`,
+                [
+                    orderId, vehicle.vin, ticketId, trackingId,
+                    vehicle.location?.address || vehicle.location?.city || null,
+                    vehicle.registration_no || null,
+                    vehicle.engine_no       || null,
+                    vehicle.model           || null,
+                    vehicle.make            || null,
+                    vehicle.variant         || null,
+                    vehicle.mfg_year        || null,
+                    vehicle.fuel_type       || null,
+                    vehicle.emission_type   || null,
+                    vehicle.rto_office_code || null,
+                    vehicle.rto_state       || null,
+                    JSON.stringify(vehicle.products || []),
+                    ais140TicketNo,
+                    miningTicketNo,
+                ]
             );
+
+            // Save SPOC if provided
+            if (vehicle.spoc?.name) {
+                await conn.execute(
+                    `INSERT INTO spoc_details (tracking_id, name, contact_no, email) VALUES (?,?,?,?)`,
+                    [trackingId, vehicle.spoc.name, vehicle.spoc.contact_number || '', vehicle.spoc.email || '']
+                );
+            }
 
             tickets.push({
                 vin:               vehicle.vin,
-                ticket_id,
-                tracking_id,
-                dispatch_location: vehicle.dispatch_location || null,
-                status:            'pending',
+                order_tracking_id: trackingId,
+                ais140_ticket_no:  ais140TicketNo,
+                mining_ticket_no:  miningTicketNo,
             });
         }
 
-        // --- Record initial status history ---
-        await conn.query(
-            `INSERT INTO order_status_history
-               (order_id, vin, from_status, to_status, changed_by, notes, metadata)
-             VALUES (?, NULL, NULL, 'pending', ?, 'Order created', ?)`,
-            [
-                order_id,
-                client_id,
-                JSON.stringify({
-                    event:      'order_created',
-                    timestamp:  new Date().toISOString(),
-                    total_vins: vehicles.length,
-                }),
-            ]
+        // Audit log
+        await conn.execute(
+            `INSERT INTO order_status_history (order_id, stage, to_status, changed_by, notes, metadata)
+             VALUES (?, 'ORDER_CREATED', 'pending', ?, 'Order created', ?)`,
+            [orderId, clientId, JSON.stringify({ event: 'order_created', timestamp: orderCreatedAt, total_vins: allVehicles.length })]
         );
 
         await conn.commit();
 
-        return res.status(201).json({
-            success: true,
-            message: 'Order created successfully.',
-            data: {
-                order_id,
-                order_number,
-                tracking_id,
-                oem_name:        oem_name || null,
-                total_vehicles:  vehicles.length,
-                status:          'pending',
-                tickets,
-                note: 'tracking_id is shared across Shipment, Delivery, and Installation modules.',
-            },
-        });
+        return res.status(200).json({ err: null, data: tickets });
 
     } catch (err) {
         await conn.rollback();
         console.error('[createOrder] Error:', err);
-        return res.status(500).json({ success: false, message: 'Internal server error.' });
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ err: { code: 'DUPLICATE_VIN', message: 'One or more VINs already exist in the system.' }, data: null });
+        }
+        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     } finally {
         conn.release();
     }
-}
+};
 
 module.exports = { createOrder };
