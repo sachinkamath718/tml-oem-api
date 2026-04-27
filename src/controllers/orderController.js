@@ -63,10 +63,12 @@ const createOrder = async (req, res) => {
 
         for (const vehicle of allVehicles) {
             const ticketId       = generateTicketId();
+            const sharedTicketNo = `TKT-${ticketId}`;   // ONE ticket number shared by order, AIS140, Mining
             const hasAIS140      = (vehicle.products || []).some(p => p.name === 'AIS140');
             const hasMINING      = (vehicle.products || []).some(p => p.name === 'MINING');
-            const ais140TicketNo = hasAIS140 ? `AIS-TKT-${ticketId}` : null;
-            const miningTicketNo = hasMINING  ? `MIN-TKT-${ticketId}` : null;
+            const ais140TicketNo = hasAIS140 ? sharedTicketNo : null;
+            const miningTicketNo = hasMINING  ? sharedTicketNo : null;
+
 
             // Insert into order_vehicles
             await conn.execute(
