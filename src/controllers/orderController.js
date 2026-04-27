@@ -13,7 +13,7 @@ const createOrder = async (req, res) => {
         const clientRefId = req.client.client_ref_id;
 
         if (!location_mappings || !Array.isArray(location_mappings) || location_mappings.length === 0) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'location_mappings is required and must be a non-empty array.' }, data: null });
+            return res.status(400).json({ success: false, err: { code: 'INVALID_DATA', message: 'location_mappings is required and must be a non-empty array.' }, data: null });
         }
 
         // Flatten all vehicles
@@ -22,13 +22,13 @@ const createOrder = async (req, res) => {
             const { location, spoc, vehicle_details } = mapping;
             if (!vehicle_details || !Array.isArray(vehicle_details)) continue;
             for (const v of vehicle_details) {
-                if (!v.vin) return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Each vehicle must have a vin.' }, data: null });
+                if (!v.vin) return res.status(400).json({ success: false, err: { code: 'INVALID_DATA', message: 'Each vehicle must have a vin.' }, data: null });
                 allVehicles.push({ ...v, location, spoc });
             }
         }
 
         if (allVehicles.length === 0) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'No vehicles found in location_mappings.' }, data: null });
+            return res.status(400).json({ success: false, err: { code: 'INVALID_DATA', message: 'No vehicles found in location_mappings.' }, data: null });
         }
 
         const orderNumber  = generateOrderNumber();
@@ -115,18 +115,19 @@ const createOrder = async (req, res) => {
 
         await conn.commit();
 
-        return res.status(200).json({ err: null, data: tickets });
+        return res.status(200).json({ success: true, err: null, data: tickets });
 
     } catch (err) {
         await conn.rollback();
         console.error('[createOrder] Error:', err);
         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ err: { code: 'DUPLICATE_VIN', message: 'One or more VINs already exist in the system.' }, data: null });
+            return res.status(400).json({ success: false, err: { code: 'DUPLICATE_VIN', message: 'One or more VINs already exist in the system.' }, data: null });
         }
-        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     } finally {
         conn.release();
     }
 };
 
 module.exports = { createOrder };
+

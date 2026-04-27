@@ -28,7 +28,7 @@ const createAIS140Request = async (req, res) => {
         const clientId = req.client.client_id;
 
         if (!Array.isArray(vehicles) || vehicles.length === 0) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Request body must be a non-empty array.' }, data: null });
+            return res.status(400).json({ success: false, err: { code: 'INVALID_DATA', message: 'Request body must be a non-empty array.' }, data: null });
         }
 
         const results       = [];
@@ -89,11 +89,11 @@ const createAIS140Request = async (req, res) => {
         }
 
         const statusCode = hasErrors && hasSuccesses ? 206 : hasErrors ? 400 : 200;
-        return res.status(statusCode).json({ err: null, data: results });
+        return res.status(statusCode).json({ success: true, err: null, data: results });
 
     } catch (err) {
         console.error('[createAIS140Request] Error:', err);
-        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
@@ -106,7 +106,7 @@ const getAIS140TicketStatus = async (req, res) => {
         const { vin, ticket_no } = req.body;
 
         if (!vin && !ticket_no) {
-            return res.status(400).json({ err: { code: 'MISSING_PARAM', message: 'Provide vin or ticket_no.' }, data: null });
+            return res.status(400).json({ success: false, err: { code: 'MISSING_PARAM', message: 'Provide vin or ticket_no.' }, data: null });
         }
 
         let rows;
@@ -117,7 +117,7 @@ const getAIS140TicketStatus = async (req, res) => {
         }
 
         if (!rows.length) {
-            return res.status(404).json({ err: { code: 404, message: 'Ticket not found' }, data: null });
+            return res.status(404).json({ success: false, err: { code: 404, message: 'Ticket not found' }, data: null });
         }
 
         const data = rows.map(t => ({
@@ -134,12 +134,13 @@ const getAIS140TicketStatus = async (req, res) => {
             updated_at:             t.updated_at,
         }));
 
-        return res.status(200).json({ err: null, data: ticket_no ? data[0] : data });
+        return res.status(200).json({ success: true, err: null, data: ticket_no ? data[0] : data });
 
     } catch (err) {
         console.error('[getAIS140TicketStatus] Error:', err);
-        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
 module.exports = { createAIS140Request, getAIS140TicketStatus };
+

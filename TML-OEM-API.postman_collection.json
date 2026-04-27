@@ -5,8 +5,9 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "https://tml-oem-7zkwx7cmf-sachinkamath718s-projects.vercel.app", "type": "string" },
-    { "key": "token",    "value": "", "type": "string" }
+    { "key": "base_url",    "value": "https://tml-oem-kjgkh47zm-sachinkamath718s-projects.vercel.app", "type": "string" },
+    { "key": "token",       "value": "", "type": "string" },
+    { "key": "tracking_id", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -43,6 +44,21 @@
     },
     {
       "name": "2. Order Creation API",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var res = pm.response.json();",
+              "if (res.data && res.data[0] && res.data[0].order_tracking_id) {",
+              "  pm.collectionVariables.set('tracking_id', res.data[0].order_tracking_id);",
+              "  console.log('Tracking ID saved: ' + res.data[0].order_tracking_id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -53,9 +69,10 @@
         "url": "{{base_url}}/api/orders/create",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"order_id\": \"ORD123456\",\n  \"device_type\": \"TCU_4G_CAN\",\n  \"customer_details\": {\n    \"name\": \"ABC Fleet Solutions Pvt Ltd\",\n    \"pan\": \"ABCDE1234F\",\n    \"gst\": \"27ABCDE1234F1Z5\",\n    \"email\": \"contact@abcfleet.com\",\n    \"contact_number\": \"+919876543210\"\n  },\n  \"location_mappings\": [\n    {\n      \"location\": {\n        \"id\": \"LOC001\",\n        \"address\": \"Plot No 123, Industrial Area\",\n        \"city\": \"Mumbai\",\n        \"pincode\": \"400001\",\n        \"district\": \"Mumbai\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Rajesh Kumar\",\n        \"contact_number\": \"+919123456789\",\n        \"email\": \"rajesh.kumar@abcfleet.com\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MA3EXXBV4MW100001\",\n          \"registration_no\": \"MH12AB1234\",\n          \"engine_no\": \"ENGINE123456\",\n          \"model\": \"TATA LPT 2518\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPT 2518 6S\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH01\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 2, \"metadata\": { \"department\": \"Khanij MH\" } }\n          ]\n        }\n      ]\n    }\n  ]\n}"
+          "raw": "{\n  \"order_id\": \"TML-ORD-2024-00789\",\n  \"device_type\": \"TCU_4G_CAN\",\n  \"customer_details\": {\n    \"name\": \"Shree Ganesh Logistics Pvt Ltd\",\n    \"pan\": \"AAFCS7862Q\",\n    \"gst\": \"29AAFCS7862Q1ZK\",\n    \"email\": \"ops@shreeganeshlogistics.in\",\n    \"contact_number\": \"+918800441122\"\n  },\n  \"location_mappings\": [\n    {\n      \"location\": {\n        \"id\": \"LOC-PUN-01\",\n        \"address\": \"Survey No. 45, Bhosari Industrial Estate\",\n        \"city\": \"Pune\",\n        \"pincode\": \"411026\",\n        \"district\": \"Pune\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Suresh Patil\",\n        \"contact_number\": \"+917709988001\",\n        \"email\": \"suresh.patil@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE10042\",\n          \"registration_no\": \"MH12DE4567\",\n          \"engine_no\": \"CUMMINS6BT5293\",\n          \"model\": \"TATA Prima 4028.S\",\n          \"make\": \"TATA\",\n          \"variant\": \"4028.S HE\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"FLEET_TRACK\", \"duration_in_years\": null, \"metadata\": null }\n          ]\n        },\n        {\n          \"vin\": \"MAT458391RWE10043\",\n          \"registration_no\": \"MH12DE4568\",\n          \"engine_no\": \"CUMMINS6BT5294\",\n          \"model\": \"TATA Prima 4028.S\",\n          \"make\": \"TATA\",\n          \"variant\": \"4028.S HE\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null }\n          ]\n        }\n      ]\n    },\n    {\n      \"location\": {\n        \"id\": \"LOC-NGP-02\",\n        \"address\": \"Khasra No 112, Butibori MIDC\",\n        \"city\": \"Nagpur\",\n        \"pincode\": \"441108\",\n        \"district\": \"Nagpur\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Dinesh Thakur\",\n        \"contact_number\": \"+919823001234\",\n        \"email\": \"dinesh.thakur@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE10044\",\n          \"registration_no\": \"MH31GH7890\",\n          \"engine_no\": \"CUMMINS6BT5295\",\n          \"model\": \"TATA LPT 2518\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPT 2518 6S\",\n          \"mfg_year\": \"2023\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH31\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 2, \"metadata\": { \"department\": \"Khanij MH\" } }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
         },
-        "description": "Creates a new device fitment order. Returns order_tracking_id, ais140_ticket_no, and mining_ticket_no per vehicle."
+        "description": "Creates a new order with 3 vehicles across 2 locations (Pune + Nagpur). tracking_id is auto-saved to {{tracking_id}}."
       }
     },
     {
@@ -67,12 +84,12 @@
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
         "url": {
-          "raw": "{{base_url}}/api/orders/status?trackingId=TRK-REPLACE-ME",
+          "raw": "{{base_url}}/api/orders/status?trackingId={{tracking_id}}",
           "host": ["{{base_url}}"],
           "path": ["api", "orders", "status"],
-          "query": [{ "key": "trackingId", "value": "TRK-REPLACE-ME" }]
+          "query": [{ "key": "trackingId", "value": "{{tracking_id}}" }]
         },
-        "description": "Returns stage-wise tracking info (ORDER_CREATED, TCU_SHIPPED, TCU_DELIVERED, DEVICE_INSTALLED etc.) with timestamps and metadata. Replace trackingId with value from Order Creation response."
+        "description": "Returns stage-wise tracking info. Uses {{tracking_id}} auto-saved from Order Creation."
       }
     },
     {
@@ -87,9 +104,10 @@
         "url": "{{base_url}}/api/orders/fitment/spoc",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"tracking_id\": \"TRK-REPLACE-ME\",\n  \"name\": \"Amit Sharma\",\n  \"contact_no\": \"+919123456789\",\n  \"email\": \"amit.sharma@abcfleet.com\"\n}"
+          "raw": "{\n  \"tracking_id\": \"{{tracking_id}}\",\n  \"name\": \"Priya Mehta\",\n  \"contact_no\": \"+919004456789\",\n  \"email\": \"priya.mehta@shreeganesh.in\"\n}",
+          "options": { "raw": { "language": "json" } }
         },
-        "description": "Updates the SPOC (Single Point of Contact) for a fitment order. Replace tracking_id with the value from Order Creation."
+        "description": "Updates the SPOC for the order. Uses {{tracking_id}} auto-saved from Order Creation."
       }
     },
     {
@@ -104,9 +122,10 @@
         "url": "{{base_url}}/api/ais140",
         "body": {
           "mode": "raw",
-          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MA3EXXBV4MW100001\",\n      \"iccid\": \"89914902991803445854\",\n      \"device_imei\": \"867584047854212\",\n      \"device_make\": \"Vendor TCU\",\n      \"device_model\": \"LAF 4G CAN\",\n      \"engine_no\": \"ENGINE123456\",\n      \"reg_number\": \"MH12AB1234\",\n      \"rto_office_code\": \"MH01\",\n      \"rto_state\": \"MH\",\n      \"sim_expiry_date\": \"2026-01-20\",\n      \"vehicle_model\": \"TATA LPT 2518\",\n      \"mfg_year\": \"2024\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"ABC Fleet Solutions Pvt Ltd\",\n      \"address\": \"Plot No 123, Industrial Area\",\n      \"city\": \"Mumbai\",\n      \"pincode\": \"400001\",\n      \"district\": \"Mumbai\",\n      \"state\": \"Maharashtra\",\n      \"mobile_no\": \"9876543210\"\n    }\n  }\n]"
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK38891\",\n      \"iccid\": \"89914504200014583621\",\n      \"device_imei\": \"356938035643809\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"WP10G336E351\",\n      \"reg_number\": \"RJ14GC0021\",\n      \"rto_office_code\": \"RJ14\",\n      \"rto_state\": \"RJ\",\n      \"sim_expiry_date\": \"2027-03-31\",\n      \"vehicle_model\": \"TATA LPK 2516\",\n      \"mfg_year\": \"2023\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Rajputana Transport Co.\",\n      \"address\": \"Ward No. 7, Riico Industrial Area\",\n      \"city\": \"Jaipur\",\n      \"pincode\": \"302013\",\n      \"district\": \"Jaipur\",\n      \"state\": \"Rajasthan\",\n      \"mobile_no\": \"9414001234\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK38892\",\n      \"iccid\": \"89914504200014583622\",\n      \"device_imei\": \"356938035643810\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"WP10G336E352\",\n      \"reg_number\": \"RJ14GC0022\",\n      \"rto_office_code\": \"RJ14\",\n      \"rto_state\": \"RJ\",\n      \"sim_expiry_date\": \"2027-03-31\",\n      \"vehicle_model\": \"TATA LPK 2516\",\n      \"mfg_year\": \"2023\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Rajputana Transport Co.\",\n      \"address\": \"Ward No. 7, Riico Industrial Area\",\n      \"city\": \"Jaipur\",\n      \"pincode\": \"302013\",\n      \"district\": \"Jaipur\",\n      \"state\": \"Rajasthan\",\n      \"mobile_no\": \"9414001234\"\n    }\n  }\n]",
+          "options": { "raw": { "language": "json" } }
         },
-        "description": "Creates AIS140 certification ticket(s) per VIN. If VIN already exists in an order, uses the same tracking_id (Case 2). Otherwise generates a new tracking_id (Case 1)."
+        "description": "AIS140 cert request for 2 Teltonika-fitted TATA LPK vehicles from Rajasthan. New VINs → Case 1 (new tracking_id generated)."
       }
     },
     {
@@ -121,9 +140,10 @@
         "url": "{{base_url}}/api/mining",
         "body": {
           "mode": "raw",
-          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MA3EXXBV4MW100001\",\n      \"iccid\": \"89914902991803445854\",\n      \"device_imei\": \"867584047854212\",\n      \"device_make\": \"Vendor TCU\",\n      \"device_model\": \"LAF 4G CAN\",\n      \"engine_no\": \"ENGINE123456\",\n      \"reg_number\": \"MH12AB1234\",\n      \"department\": \"Khanij MH\",\n      \"sim_expiry_date\": \"2026-01-20\",\n      \"vehicle_model\": \"TATA LPT 2518\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"ABC Fleet Solutions Pvt Ltd\",\n      \"address\": \"Plot No 123, Industrial Area\",\n      \"city\": \"Mumbai\",\n      \"pincode\": \"400001\",\n      \"district\": \"Mumbai\",\n      \"state\": \"Maharashtra\",\n      \"mobile_no\": \"9876543210\"\n    }\n  }\n]"
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK55001\",\n      \"iccid\": \"89914504200019977001\",\n      \"device_imei\": \"490154203237518\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"DCEC6CT8.3P224\",\n      \"reg_number\": \"JH10AB5678\",\n      \"department\": \"Jharkhand Khanij Vibhag\",\n      \"sim_expiry_date\": \"2026-12-31\",\n      \"vehicle_model\": \"TATA LPT 3118\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 3\n    },\n    \"customer_details\": {\n      \"name\": \"Jharcoal Mining Solutions Ltd\",\n      \"address\": \"Plot 22-B, Chandwa Industrial Area\",\n      \"city\": \"Latehar\",\n      \"pincode\": \"829206\",\n      \"district\": \"Latehar\",\n      \"state\": \"Jharkhand\",\n      \"mobile_no\": \"9334567890\"\n    }\n  }\n]",
+          "options": { "raw": { "language": "json" } }
         },
-        "description": "Creates Mining certification ticket(s) per VIN. Same tracking ID logic as AIS140."
+        "description": "Mining cert request for a Concox-fitted TATA LPT 3118 from Jharkhand mining sector. 3-year duration."
       }
     }
   ]
