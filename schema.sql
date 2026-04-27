@@ -1,8 +1,10 @@
 -- ============================================================
--- TML OEM API Integration - Full MySQL Schema v2
+-- TML OEM Integration API — Full MySQL Schema v3
+-- Tables: 11
+-- Last Updated: April 2026
 -- ============================================================
 
--- 1. API Clients
+-- 1. API Clients (vendor credentials)
 CREATE TABLE IF NOT EXISTS api_clients (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     client_id     VARCHAR(150) NOT NULL UNIQUE,
@@ -25,34 +27,34 @@ CREATE TABLE IF NOT EXISTS token_logs (
     FOREIGN KEY (client_ref_id) REFERENCES api_clients(id) ON DELETE CASCADE
 );
 
--- 3. Orders (updated)
+-- 3. Orders
 CREATE TABLE IF NOT EXISTS orders (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_number     VARCHAR(100) NOT NULL UNIQUE,
     tml_order_id     VARCHAR(100) NULL COMMENT 'Order ID from TML system',
-    tracking_id      VARCHAR(100) NOT NULL COMMENT 'Common tracking ID shared across modules',
+    tracking_id      VARCHAR(100) NOT NULL COMMENT 'Shared tracking ID across all modules',
     client_ref_id    BIGINT NOT NULL,
-    oem_name         VARCHAR(255),
+    oem_name         VARCHAR(255) NULL,
     device_type      VARCHAR(100) NULL,
     total_vehicles   INT DEFAULT 0,
     status           ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
     customer_details JSON NULL COMMENT 'name, pan, gst, email, contact_number',
-    created_by       VARCHAR(255),
+    created_by       VARCHAR(255) NULL,
     metadata         JSON NULL,
     created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_ref_id) REFERENCES api_clients(id)
 );
 
--- 4. Order Vehicles / Tickets (1 VIN = 1 Ticket, updated)
+-- 4. Order Vehicles / Order Tickets (1 VIN = 1 Ticket)
 CREATE TABLE IF NOT EXISTS order_vehicles (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id          BIGINT NOT NULL,
     vin               VARCHAR(100) NOT NULL UNIQUE,
-    ticket_id         VARCHAR(100) NOT NULL UNIQUE,
+    ticket_id         VARCHAR(100) NOT NULL UNIQUE COMMENT 'Shared TKT-XXXX across all module tickets',
     tracking_id       VARCHAR(100) NOT NULL,
     dispatch_location VARCHAR(500) NULL,
-    -- Vehicle fields
+    -- Vehicle details
     registration_no   VARCHAR(100) NULL,
     engine_no         VARCHAR(100) NULL,
     model             VARCHAR(255) NULL,
@@ -63,17 +65,15 @@ CREATE TABLE IF NOT EXISTS order_vehicles (
     emission_type     VARCHAR(50)  NULL,
     rto_office_code   VARCHAR(50)  NULL,
     rto_state         VARCHAR(50)  NULL,
-    -- Device fields (filled post-fitment)
+    -- Device details (filled post-fitment)
     iccid             VARCHAR(100) NULL,
     device_imei       VARCHAR(100) NULL,
     device_make       VARCHAR(100) NULL,
     device_model      VARCHAR(100) NULL,
-    -- Products requested
-    products          JSON NULL COMMENT 'Array of products: AIS140, MINING, FLEET_TRACK, etc.',
-    -- Linked ticket numbers
+    -- Products & linked tickets
+    products          JSON NULL COMMENT 'Array: AIS140, MINING, FLEET_TRACK, PANIC_BUTTON, IMMOBILIZER',
     ais140_ticket_no  VARCHAR(100) NULL,
     mining_ticket_no  VARCHAR(100) NULL,
-    -- Status
     status            ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -96,8 +96,8 @@ CREATE TABLE IF NOT EXISTS spoc_details (
 CREATE TABLE IF NOT EXISTS order_status_history (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id    BIGINT NOT NULL,
-    vin         VARCHAR(100) NULL COMMENT 'NULL=order-level, set=vehicle-level',
-    stage       VARCHAR(100) NULL COMMENT 'ORDER_CREATED, TCU_SHIPPED, TCU_DELIVERED, DEVICE_INSTALLED, etc.',
+    vin         VARCHAR(100) NULL COMMENT 'NULL = order-level event',
+    stage       VARCHAR(100) NULL COMMENT 'ORDER_CREATED | TCU_SHIPPED | TCU_DELIVERED | DEVICE_INSTALLED',
     from_status VARCHAR(50)  NULL,
     to_status   VARCHAR(50)  NOT NULL,
     changed_by  VARCHAR(255) NULL,
@@ -107,30 +107,85 @@ CREATE TABLE IF NOT EXISTS order_status_history (
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
--- 7. AIS140 Tickets
-CREATE TABLE IF NOT EXISTS ais140_tickets (
-    id                           BIGINT AUTO_INCREMENT PRIMARY KEY,
-    ticket_no                    VARCHAR(100) NOT NULL UNIQUE,
-    vin                          VARCHAR(100) NOT NULL,
-    tracking_id                  VARCHAR(100) NOT NULL,
-    order_tracking_id            VARCHAR(100) NULL COMMENT 'Linked order tracking ID if created together',
-    vehicle_details              JSON NULL,
-    customer_details             JSON NULL,
-    status                       ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
-    handler_details              JSON NULL COMMENT 'Filled when moved to in_progress',
-    certificate_file_name        VARCHAR(500) NULL,
-    certificate_file_path        VARCHAR(1000) NULL COMMENT 'S3 path',
-    validation_errors            JSON NULL,
-    created_at                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at                   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- 7. Shipment Tickets
+CREATE TABLE IF NOT EXISTS shipment_tickets (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_no         VARCHAR(100) NOT NULL COMMENT 'Same TKT-XXXX as order_vehicles.ticket_id',
+    vin               VARCHAR(100) NOT NULL,
+    tracking_id       VARCHAR(100) NOT NULL,
+    order_id          BIGINT NOT NULL,
+    status            ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
+    courier           VARCHAR(255) NULL,
+    awb_number        VARCHAR(255) NULL COMMENT 'Air Waybill / courier tracking number',
+    expected_delivery DATE NULL,
+    dispatched_at     TIMESTAMP NULL,
+    metadata          JSON NULL,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_vin (vin),
     INDEX idx_tracking_id (tracking_id)
 );
 
--- 8. Mining Tickets
+-- 8. Delivery Tickets
+CREATE TABLE IF NOT EXISTS delivery_tickets (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_no        VARCHAR(100) NOT NULL COMMENT 'Same TKT-XXXX as order_vehicles.ticket_id',
+    vin              VARCHAR(100) NOT NULL,
+    tracking_id      VARCHAR(100) NOT NULL,
+    order_id         BIGINT NOT NULL,
+    status           ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
+    delivered_to     VARCHAR(255) NULL,
+    delivery_date    DATE NULL,
+    delivery_address VARCHAR(500) NULL,
+    metadata         JSON NULL,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_vin (vin),
+    INDEX idx_tracking_id (tracking_id)
+);
+
+-- 9. Installation Tickets
+CREATE TABLE IF NOT EXISTS installation_tickets (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_no        VARCHAR(100) NOT NULL COMMENT 'Same TKT-XXXX as order_vehicles.ticket_id',
+    vin              VARCHAR(100) NOT NULL,
+    tracking_id      VARCHAR(100) NOT NULL,
+    order_id         BIGINT NOT NULL,
+    status           ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
+    technician_name  VARCHAR(255) NULL,
+    scheduled_date   DATE NULL,
+    device_status    VARCHAR(100) NULL COMMENT 'Device communication status for completion validation',
+    metadata         JSON NULL,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_vin (vin),
+    INDEX idx_tracking_id (tracking_id)
+);
+
+-- 10. AIS140 Tickets
+CREATE TABLE IF NOT EXISTS ais140_tickets (
+    id                                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_no                             VARCHAR(100) NOT NULL UNIQUE COMMENT 'Same TKT-XXXX when created with order',
+    vin                                   VARCHAR(100) NOT NULL,
+    tracking_id                           VARCHAR(100) NOT NULL,
+    order_tracking_id                     VARCHAR(100) NULL COMMENT 'Same as tracking_id if created with order (Case 2)',
+    vehicle_details                       JSON NULL,
+    customer_details                      JSON NULL,
+    status                                ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
+    handler_details                       JSON NULL COMMENT 'Filled when moved to in_progress',
+    certificate_file_name                 VARCHAR(500) NULL,
+    certificate_file_path                 VARCHAR(1000) NULL COMMENT 'S3 path',
+    validation_errors                     JSON NULL,
+    created_at                            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_vin (vin),
+    INDEX idx_tracking_id (tracking_id)
+);
+
+-- 11. Mining Tickets
 CREATE TABLE IF NOT EXISTS mining_tickets (
     id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
-    mining_ticket_no      VARCHAR(100) NOT NULL UNIQUE,
+    mining_ticket_no      VARCHAR(100) NOT NULL UNIQUE COMMENT 'Same TKT-XXXX when created with order',
     vin                   VARCHAR(100) NOT NULL,
     tracking_id           VARCHAR(100) NOT NULL,
     order_tracking_id     VARCHAR(100) NULL,
