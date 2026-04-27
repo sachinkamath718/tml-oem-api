@@ -9,7 +9,7 @@ const getOrderStatus = async (req, res) => {
         const { trackingId, order_number, vin } = req.query;
 
         if (!trackingId && !order_number && !vin) {
-            return res.status(400).json({ success: false, err: { code: 'MISSING_PARAM', message: 'Provide trackingId, order_number, or vin.' }, data: null });
+            return res.status(400).json({ err: { code: 'MISSING_PARAM', message: 'Provide trackingId, order_number, or vin.' }, data: null });
         }
 
         let orderRows;
@@ -20,12 +20,12 @@ const getOrderStatus = async (req, res) => {
         } else {
             // lookup by VIN → get order
             const [vRows] = await pool.execute(`SELECT order_id FROM order_vehicles WHERE vin = ? LIMIT 1`, [vin]);
-            if (!vRows.length) return res.status(404).json({ success: false, err: { code: 404, message: 'Tracking ID not found' }, data: null });
+            if (!vRows.length) return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
             [orderRows] = await pool.execute(`SELECT * FROM orders WHERE id = ? LIMIT 1`, [vRows[0].order_id]);
         }
 
         if (!orderRows.length) {
-            return res.status(404).json({ success: false, err: { code: 404, message: 'Tracking ID not found' }, data: null });
+            return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
         }
 
         const order = orderRows[0];
@@ -75,9 +75,10 @@ const getOrderStatus = async (req, res) => {
 
     } catch (err) {
         console.error('[getOrderStatus] Error:', err);
-        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
 module.exports = { getOrderStatus };
+
 

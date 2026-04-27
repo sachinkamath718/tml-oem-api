@@ -19,7 +19,7 @@ const updateSpoc = async (req, res) => {
         // Verify tracking_id exists
         const [orders] = await pool.execute(`SELECT id FROM orders WHERE tracking_id = ? LIMIT 1`, [tracking_id]);
         if (!orders.length) {
-            return res.status(404).json({ success: false, err: { code: 404, message: 'Tracking ID not found' }, data: null });
+            return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
         }
 
         // Upsert SPOC
@@ -44,9 +44,10 @@ const updateSpoc = async (req, res) => {
 
     } catch (err) {
         console.error('[updateSpoc] Error:', err);
-        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
 module.exports = { updateSpoc };
+
 

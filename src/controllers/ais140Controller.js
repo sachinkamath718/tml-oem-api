@@ -1,39 +1,34 @@
 const pool    = require('../config/db');
 const { generateTrackingId, generateTicketId } = require('../utils/idGenerator');
 
-/**
- * Validate AIS140 vehicle fields
- */
 const validateAIS140Vehicle = (vd) => {
     const errors = [];
-    if (!vd.vin)                                errors.push('vin is required');
-    if (!vd.iccid)                              errors.push('iccid is required');
-    if (!vd.device_imei)                        errors.push('device_imei is required');
-    if (!vd.rto_office_code)                    errors.push('rto_office_code is required');
-    if (!vd.rto_state)                          errors.push('rto_state is required');
-    if (!vd.sim_expiry_date)                    errors.push('sim_expiry_date is required');
+    if (!vd.vin)         errors.push('vin is required');
+    if (!vd.iccid)       errors.push('iccid is required');
+    if (!vd.device_imei) errors.push('device_imei is required');
+    if (!vd.rto_office_code) errors.push('rto_office_code is required');
+    if (!vd.rto_state)       errors.push('rto_state is required');
+    if (!vd.sim_expiry_date) errors.push('sim_expiry_date is required');
     if (!vd.certificate_validity_duration_in_year) errors.push('certificate_validity_duration_in_year is required');
     return errors;
 };
 
 /**
  * POST /api/ais140
- * Creates AIS140 cert tickets per VIN
- * Case 1: No order_tracking_id in request → generate new tracking_id (late request)
- * Case 2: order_tracking_id provided → use same tracking_id (created together)
+ * Case 1: VIN not in any order → new tracking_id
+ * Case 2: VIN already in order → same tracking_id
  */
 const createAIS140Request = async (req, res) => {
     try {
-        const vehicles = req.body; // Array of { vehicle_details, customer_details }
-        const clientId = req.client.client_id;
+        const vehicles = req.body;
 
         if (!Array.isArray(vehicles) || vehicles.length === 0) {
-            return res.status(400).json({ success: false, err: { code: 'INVALID_DATA', message: 'Request body must be a non-empty array.' }, data: null });
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Request body must be a non-empty array.' }, data: null });
         }
 
-        const results       = [];
-        let   hasErrors     = false;
-        let   hasSuccesses  = false;
+        const results      = [];
+        let   hasErrors    = false;
+        let   hasSuccesses = false;
 
         for (const item of vehicles) {
             const vd  = item.vehicle_details  || {};
@@ -47,10 +42,8 @@ const createAIS140Request = async (req, res) => {
                 continue;
             }
 
-            // Determine tracking_id
-            // Case 2: If vehicle exists in order_vehicles, use same tracking_id
-            // Case 1: Otherwise, generate new one
-            let trackingId    = generateTrackingId();
+            // Case 2: VIN already in order → use same tracking_id
+            let trackingId      = generateTrackingId();
             let orderTrackingId = null;
 
             const [existing] = await pool.execute(
@@ -58,11 +51,10 @@ const createAIS140Request = async (req, res) => {
             );
 
             if (existing.length) {
-                // Case 2 — use same tracking_id as order
                 trackingId      = existing[0].tracking_id;
                 orderTrackingId = existing[0].tracking_id;
 
-                // If ticket already exists, return existing ticket
+                // Already has ticket → return existing
                 if (existing[0].ais140_ticket_no) {
                     results.push({ vin, ticket_no: existing[0].ais140_ticket_no, validation_errors: null });
                     hasSuccesses = true;
@@ -70,7 +62,7 @@ const createAIS140Request = async (req, res) => {
                 }
             }
 
-            const ticketNo = `AIS-${generateTicketId()}`;
+            const ticketNo = `AIS-TKT-${generateTicketId()}`;
 
             await pool.execute(
                 `INSERT INTO ais140_tickets
@@ -89,58 +81,67 @@ const createAIS140Request = async (req, res) => {
         }
 
         const statusCode = hasErrors && hasSuccesses ? 206 : hasErrors ? 400 : 200;
-        return res.status(statusCode).json({ success: true, err: null, data: results });
+        return res.status(statusCode).json({ err: null, data: results });
 
     } catch (err) {
         console.error('[createAIS140Request] Error:', err);
-        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
 /**
  * POST /api/ais140/ticket-status
- * Get AIS140 ticket status by vin or ticket_no
+ * Body: [{ vin_no, ticket_no }]
+ * Returns: [{ vin, status, certificate_file_names }]
  */
 const getAIS140TicketStatus = async (req, res) => {
     try {
-        const { vin, ticket_no } = req.body;
+        const requests = req.body;
 
-        if (!vin && !ticket_no) {
-            return res.status(400).json({ success: false, err: { code: 'MISSING_PARAM', message: 'Provide vin or ticket_no.' }, data: null });
+        if (!Array.isArray(requests) || requests.length === 0) {
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Request body must be a non-empty array of { vin_no, ticket_no }.' }, data: null });
         }
 
-        let rows;
-        if (ticket_no) {
-            [rows] = await pool.execute(`SELECT * FROM ais140_tickets WHERE ticket_no = ? LIMIT 1`, [ticket_no]);
-        } else {
-            [rows] = await pool.execute(`SELECT * FROM ais140_tickets WHERE vin = ? ORDER BY created_at DESC`, [vin]);
+        const results = [];
+
+        for (const item of requests) {
+            const { vin_no, ticket_no } = item;
+            if (!vin_no && !ticket_no) {
+                results.push({ vin: null, status: null, certificate_file_names: [], error: 'vin_no or ticket_no required' });
+                continue;
+            }
+
+            let rows;
+            if (ticket_no) {
+                [rows] = await pool.execute(`SELECT * FROM ais140_tickets WHERE ticket_no = ? LIMIT 1`, [ticket_no]);
+            } else {
+                [rows] = await pool.execute(`SELECT * FROM ais140_tickets WHERE vin = ? ORDER BY created_at DESC LIMIT 1`, [vin_no]);
+            }
+
+            if (!rows.length) {
+                results.push({ vin: vin_no || null, ticket_no: ticket_no || null, status: null, certificate_file_names: [], error: 'Ticket not found' });
+                continue;
+            }
+
+            const t = rows[0];
+            results.push({
+                vin:                    t.vin,
+                ticket_no:              t.ticket_no,
+                tracking_id:            t.tracking_id,
+                status:                 t.status,
+                certificate_file_names: t.certificate_file_name ? [t.certificate_file_name] : [],
+                certificate_file_path:  t.certificate_file_path || null,
+                handler_details:        t.handler_details || null,
+                updated_at:             t.updated_at,
+            });
         }
 
-        if (!rows.length) {
-            return res.status(404).json({ success: false, err: { code: 404, message: 'Ticket not found' }, data: null });
-        }
-
-        const data = rows.map(t => ({
-            ticket_no:              t.ticket_no,
-            vin:                    t.vin,
-            tracking_id:            t.tracking_id,
-            order_tracking_id:      t.order_tracking_id,
-            status:                 t.status,
-            handler_details:        t.handler_details,
-            certificate_file_name:  t.certificate_file_name,
-            certificate_file_path:  t.certificate_file_path,
-            validation_errors:      t.validation_errors,
-            created_at:             t.created_at,
-            updated_at:             t.updated_at,
-        }));
-
-        return res.status(200).json({ success: true, err: null, data: ticket_no ? data[0] : data });
+        return res.status(200).json({ err: null, data: results });
 
     } catch (err) {
         console.error('[getAIS140TicketStatus] Error:', err);
-        return res.status(500).json({ success: false, err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
 module.exports = { createAIS140Request, getAIS140TicketStatus };
-
