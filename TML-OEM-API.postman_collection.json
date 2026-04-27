@@ -1,12 +1,12 @@
 {
   "info": {
     "name": "TML OEM API",
-    "description": "TML OEM Integration — Token, Orders, Status APIs",
+    "description": "TML OEM Integration — 5 Core APIs",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "base_url", "value": "https://tml-oem-7zkwx7cmf-sachinkamath718s-projects.vercel.app", "type": "string" },
-    { "key": "token",    "value": "",                      "type": "string" }
+    { "key": "token",    "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -17,8 +17,8 @@
           "script": {
             "exec": [
               "var res = pm.response.json();",
-              "if (res.success && res.data && res.data.access_token) {",
-              "  pm.collectionVariables.set('token', res.data.access_token);",
+              "if (res.access_token) {",
+              "  pm.collectionVariables.set('token', res.access_token);",
               "  console.log('Token saved automatically.');",
               "}"
             ],
@@ -28,86 +28,102 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
         "url": "{{base_url}}/api/auth/token",
         "body": {
-          "mode": "raw",
-          "raw": "{\n  \"client_id\": \"tml-client-id\",\n  \"client_secret\": \"tml-client-secret\"\n}"
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "client_id",     "value": "tml-client-id",     "type": "text" },
+            { "key": "client_secret", "value": "tml-client-secret", "type": "text" },
+            { "key": "grant_type",    "value": "client_credentials","type": "text" }
+          ]
         },
-        "description": "Generates a Bearer JWT token valid for 12 hours.\n\nThe token is **automatically saved** to the `token` collection variable — no need to copy-paste it manually."
+        "description": "Authenticates and returns a Bearer JWT token valid for 12 hours. Token is auto-saved for all other requests."
       }
     },
     {
-      "name": "2. Create Order",
+      "name": "2. Order Creation API",
       "request": {
         "method": "POST",
         "header": [
           { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
         "url": "{{base_url}}/api/orders/create",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"oem_name\": \"Tata Motors\",\n  \"vehicles\": [\n    { \"vin\": \"VIN-A001\", \"dispatch_location\": \"Mumbai Warehouse\" },\n    { \"vin\": \"VIN-A002\", \"dispatch_location\": \"Delhi Hub\" },\n    { \"vin\": \"VIN-A003\", \"dispatch_location\": \"Mumbai Warehouse\" }\n  ]\n}"
+          "raw": "{\n  \"order_id\": \"ORD123456\",\n  \"device_type\": \"TCU_4G_CAN\",\n  \"customer_details\": {\n    \"name\": \"ABC Fleet Solutions Pvt Ltd\",\n    \"pan\": \"ABCDE1234F\",\n    \"gst\": \"27ABCDE1234F1Z5\",\n    \"email\": \"contact@abcfleet.com\",\n    \"contact_number\": \"+919876543210\"\n  },\n  \"location_mappings\": [\n    {\n      \"location\": {\n        \"id\": \"LOC001\",\n        \"address\": \"Plot No 123, Industrial Area\",\n        \"city\": \"Mumbai\",\n        \"pincode\": \"400001\",\n        \"district\": \"Mumbai\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Rajesh Kumar\",\n        \"contact_number\": \"+919123456789\",\n        \"email\": \"rajesh.kumar@abcfleet.com\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MA3EXXBV4MW100001\",\n          \"registration_no\": \"MH12AB1234\",\n          \"engine_no\": \"ENGINE123456\",\n          \"model\": \"TATA LPT 2518\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPT 2518 6S\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH01\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 2, \"metadata\": { \"department\": \"Khanij MH\" } }\n          ]\n        }\n      ]\n    }\n  ]\n}"
         },
-        "description": "Creates a new order.\n\n**Rules:**\n- One order = one shared `tracking_id` across Shipment, Delivery, Installation\n- One VIN = one unique `ticket_id`\n- Multiple dispatch locations allowed in one order\n\n⚠️ Run **Generate Token** first — Bearer token is injected automatically."
+        "description": "Creates a new device fitment order. Returns order_tracking_id, ais140_ticket_no, and mining_ticket_no per vehicle."
       }
     },
     {
-      "name": "3. Order Status — by order_number",
+      "name": "3. Order Status API",
       "request": {
         "method": "GET",
         "header": [
+          { "key": "Accept",        "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
         "url": {
-          "raw": "{{base_url}}/api/orders/status?order_number=ORD-20260425-A5D5C2",
+          "raw": "{{base_url}}/api/orders/status?trackingId=TRK-REPLACE-ME",
           "host": ["{{base_url}}"],
           "path": ["api", "orders", "status"],
-          "query": [{ "key": "order_number", "value": "ORD-20260425-A5D5C2" }]
+          "query": [{ "key": "trackingId", "value": "TRK-REPLACE-ME" }]
         },
-        "description": "Get full order status by `order_number`.\n\nReturns:\n- Order details and status\n- All vehicle tickets (1 per VIN)\n- Dispatch location summary\n- Full audit history"
+        "description": "Returns stage-wise tracking info (ORDER_CREATED, TCU_SHIPPED, TCU_DELIVERED, DEVICE_INSTALLED etc.) with timestamps and metadata. Replace trackingId with value from Order Creation response."
       }
     },
     {
-      "name": "3b. Order Status — by tracking_id",
+      "name": "4. SPOC Update",
       "request": {
-        "method": "GET",
+        "method": "PUT",
         "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "url": {
-          "raw": "{{base_url}}/api/orders/status?tracking_id=TRK-1777141989930-2BC129",
-          "host": ["{{base_url}}"],
-          "path": ["api", "orders", "status"],
-          "query": [{ "key": "tracking_id", "value": "TRK-1777141989930-2BC129" }]
+        "url": "{{base_url}}/api/orders/fitment/spoc",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tracking_id\": \"TRK-REPLACE-ME\",\n  \"name\": \"Amit Sharma\",\n  \"contact_no\": \"+919123456789\",\n  \"email\": \"amit.sharma@abcfleet.com\"\n}"
         },
-        "description": "Get order status using the shared `tracking_id` (same ID used across Shipment, Delivery, Installation)."
+        "description": "Updates the SPOC (Single Point of Contact) for a fitment order. Replace tracking_id with the value from Order Creation."
       }
     },
     {
-      "name": "3c. Order Status — by VIN",
+      "name": "5a. AIS140 Cert Request",
       "request": {
-        "method": "GET",
+        "method": "POST",
         "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
           { "key": "Authorization", "value": "Bearer {{token}}" }
         ],
-        "url": {
-          "raw": "{{base_url}}/api/orders/status?vin=VIN-A001",
-          "host": ["{{base_url}}"],
-          "path": ["api", "orders", "status"],
-          "query": [{ "key": "vin", "value": "VIN-A001" }]
+        "url": "{{base_url}}/api/ais140",
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MA3EXXBV4MW100001\",\n      \"iccid\": \"89914902991803445854\",\n      \"device_imei\": \"867584047854212\",\n      \"device_make\": \"Vendor TCU\",\n      \"device_model\": \"LAF 4G CAN\",\n      \"engine_no\": \"ENGINE123456\",\n      \"reg_number\": \"MH12AB1234\",\n      \"rto_office_code\": \"MH01\",\n      \"rto_state\": \"MH\",\n      \"sim_expiry_date\": \"2026-01-20\",\n      \"vehicle_model\": \"TATA LPT 2518\",\n      \"mfg_year\": \"2024\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"ABC Fleet Solutions Pvt Ltd\",\n      \"address\": \"Plot No 123, Industrial Area\",\n      \"city\": \"Mumbai\",\n      \"pincode\": \"400001\",\n      \"district\": \"Mumbai\",\n      \"state\": \"Maharashtra\",\n      \"mobile_no\": \"9876543210\"\n    }\n  }\n]"
         },
-        "description": "Get order status by looking up a specific VIN."
+        "description": "Creates AIS140 certification ticket(s) per VIN. If VIN already exists in an order, uses the same tracking_id (Case 2). Otherwise generates a new tracking_id (Case 1)."
       }
     },
     {
-      "name": "Health Check",
+      "name": "5b. Mining Cert Request",
       "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{base_url}}/health",
-        "description": "Check if the API server is running."
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/api/mining",
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MA3EXXBV4MW100001\",\n      \"iccid\": \"89914902991803445854\",\n      \"device_imei\": \"867584047854212\",\n      \"device_make\": \"Vendor TCU\",\n      \"device_model\": \"LAF 4G CAN\",\n      \"engine_no\": \"ENGINE123456\",\n      \"reg_number\": \"MH12AB1234\",\n      \"department\": \"Khanij MH\",\n      \"sim_expiry_date\": \"2026-01-20\",\n      \"vehicle_model\": \"TATA LPT 2518\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"ABC Fleet Solutions Pvt Ltd\",\n      \"address\": \"Plot No 123, Industrial Area\",\n      \"city\": \"Mumbai\",\n      \"pincode\": \"400001\",\n      \"district\": \"Mumbai\",\n      \"state\": \"Maharashtra\",\n      \"mobile_no\": \"9876543210\"\n    }\n  }\n]"
+        },
+        "description": "Creates Mining certification ticket(s) per VIN. Same tracking ID logic as AIS140."
       }
     }
   ]
