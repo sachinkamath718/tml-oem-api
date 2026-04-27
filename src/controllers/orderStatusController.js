@@ -1,121 +1,94 @@
 const pool = require('../config/db');
 
 /**
- * GET /api/orders/status?trackingId=TRK...
- * Returns tab-wise ticket status breakdown (Orders, Shipment, Delivery, Installation, AIS140, Mining)
+ * GET /orders/status?trackingId=TRK...
  */
 const getOrderStatus = async (req, res) => {
     try {
-        const { trackingId, order_number, vin } = req.query;
+        const { trackingId } = req.query;
 
-        if (!trackingId && !order_number && !vin) {
-            return res.status(400).json({ err: { code: 'MISSING_PARAM', message: 'Provide trackingId, order_number, or vin.' }, data: null });
+        // ── Step 4: Validate ──────────────────────────────────────
+        if (!trackingId) {
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'trackingId is required' }, data: null });
         }
 
-        // ── Find order ────────────────────────────────────────────
-        let orderRows;
-        if (trackingId) {
-            [orderRows] = await pool.execute(`SELECT * FROM orders WHERE tracking_id = ? LIMIT 1`, [trackingId]);
-        } else if (order_number) {
-            [orderRows] = await pool.execute(`SELECT * FROM orders WHERE order_number = ? LIMIT 1`, [order_number]);
-        } else {
-            const [vRows] = await pool.execute(`SELECT order_id FROM order_vehicles WHERE vin = ? LIMIT 1`, [vin]);
-            if (!vRows.length) return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
-            [orderRows] = await pool.execute(`SELECT * FROM orders WHERE id = ? LIMIT 1`, [vRows[0].order_id]);
-        }
+        // ── Step 5: Look up order ─────────────────────────────────
+        const [orderRows] = await pool.execute(
+            `SELECT * FROM orders WHERE tracking_id = ? LIMIT 1`, [trackingId]
+        );
 
         if (!orderRows.length) {
-            return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
+            return res.status(404).json({ err: { code: 'NOT_FOUND', message: 'No order found for this trackingId' }, data: null });
         }
 
         const order = orderRows[0];
-        const tid   = order.tracking_id;
+        const cd    = order.customer_details
+            ? (typeof order.customer_details === 'string' ? JSON.parse(order.customer_details) : order.customer_details)
+            : {};
 
-        // ── Helper: count tickets by status ───────────────────────
-        const countByStatus = (rows) => {
-            const counts = { pending: 0, in_progress: 0, completed: 0, on_hold: 0, failed: 0 };
-            rows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
-            return counts;
-        };
+        // ── Fetch all vehicle tickets ─────────────────────────────
+        const [vehicleRows] = await pool.execute(
+            `SELECT vin, ticket_id, status, stage_metadata, ais140_ticket_no, mining_ticket_no,
+                    dispatch_location, registration_no, model, make
+             FROM order_vehicles WHERE tracking_id = ? ORDER BY created_at ASC`,
+            [trackingId]
+        );
 
-        // ── Fetch all tabs in parallel ─────────────────────────────
-        const [
-            [orderVehicles],
-            [shipmentRows],
-            [deliveryRows],
-            [installRows],
-            [ais140Rows],
-            [miningRows],
-            [historyRows],
-        ] = await Promise.all([
-            pool.execute(`SELECT vin, ticket_id as ticket_no, status, ais140_ticket_no, mining_ticket_no, dispatch_location FROM order_vehicles WHERE tracking_id = ?`, [tid]),
-            pool.execute(`SELECT ticket_no, vin, status FROM shipment_tickets WHERE tracking_id = ?`, [tid]),
-            pool.execute(`SELECT ticket_no, vin, status FROM delivery_tickets WHERE tracking_id = ?`, [tid]),
-            pool.execute(`SELECT ticket_no, vin, status FROM installation_tickets WHERE tracking_id = ?`, [tid]),
-            pool.execute(`SELECT ticket_no, vin, status FROM ais140_tickets WHERE tracking_id = ?`, [tid]),
-            pool.execute(`SELECT mining_ticket_no as ticket_no, vin, status FROM mining_tickets WHERE tracking_id = ?`, [tid]),
-            pool.execute(`SELECT stage, to_status as status, created_at, metadata FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC`, [order.id]),
-        ]);
+        // ── Step 6: Build stage-wise status per ticket ────────────
+        const tickets = vehicleRows.map(v => {
+            let stages = {};
+            if (v.stage_metadata) {
+                stages = typeof v.stage_metadata === 'string'
+                    ? JSON.parse(v.stage_metadata)
+                    : v.stage_metadata;
+            }
+            return {
+                ticket_id:        v.ticket_id,
+                vin:              v.vin,
+                status:           v.status.charAt(0).toUpperCase() + v.status.slice(1).replace('_', ' '),
+                ais140_ticket_no: v.ais140_ticket_no,
+                mining_ticket_no: v.mining_ticket_no,
+                stages,
+            };
+        });
 
-        // ── Build stage tracking_info ─────────────────────────────
-        const tracking_info = historyRows.map(h => ({
-            stage:      h.stage,
-            status:     h.status,
-            updated_at: new Date(h.created_at).getTime(),
-            metadata:   h.metadata ? (typeof h.metadata === 'string' ? JSON.parse(h.metadata) : h.metadata) : {},
-        }));
+        // ── Tab-wise counts (for dashboard/kanban view) ───────────
+        const countByStatus = (rows) => ({
+            pending:     rows.filter(r => r.status === 'pending').length,
+            in_progress: rows.filter(r => r.status === 'in_progress').length,
+            completed:   rows.filter(r => r.status === 'completed').length,
+            on_hold:     rows.filter(r => r.status === 'on_hold').length,
+            failed:      rows.filter(r => r.status === 'failed').length,
+        });
 
-        // ── Build tab-wise response ───────────────────────────────
+        const [shipRows]   = await pool.execute(`SELECT status FROM shipment_tickets WHERE tracking_id=?`, [trackingId]);
+        const [delRows]    = await pool.execute(`SELECT status FROM delivery_tickets WHERE tracking_id=?`, [trackingId]);
+        const [instRows]   = await pool.execute(`SELECT status FROM installation_tickets WHERE tracking_id=?`, [trackingId]);
+        const [ais140Rows] = await pool.execute(`SELECT status FROM ais140_tickets WHERE tracking_id=?`, [trackingId]);
+        const [mineRows]   = await pool.execute(`SELECT status FROM mining_tickets WHERE tracking_id=?`, [trackingId]);
+
         const tabs = {
-            orders: {
-                counts:  countByStatus(orderVehicles),
-                tickets: orderVehicles.map(v => ({
-                    ticket_no:        v.ticket_no,
-                    vin:              v.vin,
-                    status:           v.status,
-                    dispatch_location: v.dispatch_location,
-                })),
-            },
-            shipment: {
-                counts:  countByStatus(shipmentRows),
-                tickets: shipmentRows.map(v => ({ ticket_no: v.ticket_no, vin: v.vin, status: v.status })),
-            },
-            delivery: {
-                counts:  countByStatus(deliveryRows),
-                tickets: deliveryRows.map(v => ({ ticket_no: v.ticket_no, vin: v.vin, status: v.status })),
-            },
-            installation: {
-                counts:  countByStatus(installRows),
-                tickets: installRows.map(v => ({ ticket_no: v.ticket_no, vin: v.vin, status: v.status })),
-            },
+            orders:       countByStatus(vehicleRows),
+            shipment:     countByStatus(shipRows),
+            delivery:     countByStatus(delRows),
+            installation: countByStatus(instRows),
         };
+        if (ais140Rows.length) tabs.ais140  = countByStatus(ais140Rows);
+        if (mineRows.length)   tabs.mining  = countByStatus(mineRows);
 
-        // AIS140 tab — only if tickets exist
-        if (ais140Rows.length > 0) {
-            tabs.ais140 = {
-                counts:  countByStatus(ais140Rows),
-                tickets: ais140Rows.map(v => ({ ticket_no: v.ticket_no, vin: v.vin, status: v.status })),
-            };
-        }
-
-        // Mining tab — only if tickets exist
-        if (miningRows.length > 0) {
-            tabs.mining = {
-                counts:  countByStatus(miningRows),
-                tickets: miningRows.map(v => ({ ticket_no: v.ticket_no, vin: v.vin, status: v.status })),
-            };
-        }
-
+        // ── Step 7: Return response ───────────────────────────────
         return res.status(200).json({
             err:  null,
             data: {
-                order_number:     order.order_number,
-                tml_order_id:     order.tml_order_id,
-                tracking_id:      order.tracking_id,
-                overall_status:   order.status,
-                total_vehicles:   order.total_vehicles,
-                customer_details: order.customer_details,
-                tracking_info,
+                order_id:      order.tml_order_id,
+                order_number:  order.order_number,
+                tracking_id:   order.tracking_id,
+                status:        order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' '),
+                customer_name: cd.name  || null,
+                customer_email: cd.email || null,
+                total_vehicles: order.total_vehicles,
+                created_at:    order.created_at,
+                tickets,
                 tabs,
             }
         });
