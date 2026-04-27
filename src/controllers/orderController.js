@@ -97,7 +97,30 @@ const createOrder = async (req, res) => {
                 ]
             );
 
+            // ── Shipment ticket (always created) ──────────────────
+            await conn.execute(
+                `INSERT INTO shipment_tickets (ticket_no, vin, tracking_id, order_id, status)
+                 VALUES (?,?,?,?,'pending')`,
+                [sharedTicketNo, vehicle.vin, trackingId, orderId]
+            );
+
+            // ── Delivery ticket (always created) ───────────────────
+            await conn.execute(
+                `INSERT INTO delivery_tickets (ticket_no, vin, tracking_id, order_id, status, delivery_address)
+                 VALUES (?,?,?,?,'pending',?)`,
+                [sharedTicketNo, vehicle.vin, trackingId, orderId,
+                 vehicle.location?.address || null]
+            );
+
+            // ── Installation ticket (always created) ───────────────
+            await conn.execute(
+                `INSERT INTO installation_tickets (ticket_no, vin, tracking_id, order_id, status)
+                 VALUES (?,?,?,?,'pending')`,
+                [sharedTicketNo, vehicle.vin, trackingId, orderId]
+            );
+
             // ── If AIS140 product → create ticket in ais140_tickets table ──
+
             if (hasAIS140) {
                 const ais140Product = vehicle.products.find(p => p.name === 'AIS140');
                 await conn.execute(
