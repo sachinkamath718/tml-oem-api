@@ -10,6 +10,7 @@ const updateSpoc = async (req, res) => {
 
         if (!tracking_id || !name || !contact_no || !email) {
             return res.status(400).json({
+                success: false,
                 err: { code: 'INVALID_DATA', message: 'tracking_id, name, contact_no, and email are required.' },
                 data: null
             });
@@ -36,6 +37,7 @@ const updateSpoc = async (req, res) => {
         }
 
         return res.status(200).json({
+            success: true,
             err:  null,
             data: { tracking_id, updated: true }
         });
