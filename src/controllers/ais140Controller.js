@@ -3,13 +3,13 @@ const { generateTrackingId, generateTicketId } = require('../utils/idGenerator')
 
 const validateAIS140Vehicle = (vd) => {
     const errors = [];
-    if (!vd.vin)         errors.push('vin is required');
-    if (!vd.iccid)       errors.push('iccid is required');
-    if (!vd.device_imei) errors.push('device_imei is required');
-    if (!vd.rto_office_code) errors.push('rto_office_code is required');
-    if (!vd.rto_state)       errors.push('rto_state is required');
-    if (!vd.sim_expiry_date) errors.push('sim_expiry_date is required');
-    if (!vd.certificate_validity_duration_in_year) errors.push('certificate_validity_duration_in_year is required');
+    if (!vd.vin)              errors.push('Invalid VIN');
+    if (!vd.iccid)            errors.push('Missing POI document');
+    if (!vd.device_imei)      errors.push('Missing device IMEI');
+    if (!vd.rto_office_code)  errors.push('Invalid RTO code');
+    if (!vd.rto_state)        errors.push('Invalid RTO state');
+    if (!vd.sim_expiry_date)  errors.push('Missing SIM expiry date');
+    if (!vd.certificate_validity_duration_in_year) errors.push('Missing certificate validity duration');
     return errors;
 };
 
