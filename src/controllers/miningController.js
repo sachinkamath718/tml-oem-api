@@ -96,11 +96,10 @@ const createMiningRequest = async (req, res) => {
 
 /**
  * POST /mining/ticket-status
- * Body: [{ "vin_no": "...", "mining_ticket_no": "..." }]
+ * Body: [{ "vin_no": "...", "ticket_no": "..." }]
  *
- * Response: { "err": null, "data": [{ vin, mining_ticket_no, status, remark, handler,
- *   handler_contact, process_datetime, certification_registration_datetime,
- *   certification_expiry_date, certificate_file_location, certificate_file_names, metadata }] }
+ * Response: { "err": null, "data": [{ vin, ticket_no, status, remark,
+ *   handler, handler_contact, process_datetime, polling_datetime, metadata }] }
  */
 const getMiningTicketStatus = async (req, res) => {
     try {
@@ -108,7 +107,7 @@ const getMiningTicketStatus = async (req, res) => {
 
         if (!Array.isArray(requests) || requests.length === 0) {
             return res.status(400).json({
-                err:  { code: 'INVALID_DATA', message: 'Request body must be a non-empty array of { vin_no, mining_ticket_no }.' },
+                err:  { code: 'INVALID_DATA', message: 'Request body must be a non-empty array of { vin_no, ticket_no }.' },
                 data: null,
             });
         }
@@ -116,24 +115,22 @@ const getMiningTicketStatus = async (req, res) => {
         const results = [];
 
         for (const item of requests) {
-            const { vin_no, mining_ticket_no } = item;
+            const { vin_no, ticket_no } = item;
 
-            if (!vin_no && !mining_ticket_no) {
+            if (!vin_no && !ticket_no) {
                 results.push({
-                    vin: null, mining_ticket_no: null, status: null,
+                    vin: null, ticket_no: null, status: null,
                     remark: null, handler: null, handler_contact: null,
-                    process_datetime: null, certification_registration_datetime: null,
-                    certification_expiry_date: null, certificate_file_location: null,
-                    certificate_file_names: [], metadata: {},
-                    error: 'vin_no or mining_ticket_no required',
+                    process_datetime: null, polling_datetime: null, metadata: {},
+                    error: 'vin_no or ticket_no required',
                 });
                 continue;
             }
 
             let rows;
-            if (mining_ticket_no) {
+            if (ticket_no) {
                 [rows] = await pool.execute(
-                    `SELECT * FROM mining_tickets WHERE mining_ticket_no = ? LIMIT 1`, [mining_ticket_no]
+                    `SELECT * FROM mining_tickets WHERE mining_ticket_no = ? LIMIT 1`, [ticket_no]
                 );
             } else {
                 [rows] = await pool.execute(
@@ -143,20 +140,15 @@ const getMiningTicketStatus = async (req, res) => {
 
             if (!rows.length) {
                 results.push({
-                    vin: vin_no || null, mining_ticket_no: mining_ticket_no || null,
+                    vin: vin_no || null, ticket_no: ticket_no || null,
                     status: null, remark: null, handler: null, handler_contact: null,
-                    process_datetime: null, certification_registration_datetime: null,
-                    certification_expiry_date: null, certificate_file_location: null,
-                    certificate_file_names: [], metadata: {},
+                    process_datetime: null, polling_datetime: null, metadata: {},
                     error: 'Ticket not found',
                 });
                 continue;
             }
 
             const t = rows[0];
-
-            const certFileNames = [];
-            if (t.certificate_file_name) certFileNames.push(t.certificate_file_name);
 
             let metadata = {};
             if (t.handler_details) {
@@ -166,23 +158,18 @@ const getMiningTicketStatus = async (req, res) => {
             }
 
             results.push({
-                vin:                                t.vin,
-                mining_ticket_no:                   t.mining_ticket_no,
-                status:                             mapStatus(t.status),
-                remark:                             t.remark || null,
-                handler:                            t.handler || null,
-                handler_contact:                    t.handler_contact || null,
-                process_datetime:                   t.process_datetime
+                vin:              t.vin,
+                ticket_no:        t.mining_ticket_no,   // spec uses ticket_no in response
+                status:           mapStatus(t.status),
+                remark:           t.remark          || null,
+                handler:          t.handler          || null,
+                handler_contact:  t.handler_contact  || null,
+                process_datetime: t.process_datetime
                     ? new Date(t.process_datetime).toISOString().replace('Z', '')
                     : null,
-                certification_registration_datetime: t.certification_registration_datetime
-                    ? new Date(t.certification_registration_datetime).toISOString().replace('Z', '')
+                polling_datetime: t.polling_datetime
+                    ? new Date(t.polling_datetime).toISOString().replace('Z', '')
                     : null,
-                certification_expiry_date:          t.certification_expiry_date
-                    ? t.certification_expiry_date.toISOString().split('T')[0]
-                    : null,
-                certificate_file_location:          t.certificate_file_location || t.certificate_file_path || null,
-                certificate_file_names:             certFileNames,
                 metadata,
             });
         }
