@@ -103,7 +103,8 @@ const createMiningRequest = async (req, res) => {
  */
 const getMiningTicketStatus = async (req, res) => {
     try {
-        const requests = req.body;
+        // AFTER — handles both wrapped { err, data: [...] } and plain array
+        const requests = Array.isArray(req.body) ? req.body : req.body?.data;
 
         if (!Array.isArray(requests) || requests.length === 0) {
             return res.status(400).json({
