@@ -14,10 +14,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Routes ──────────────────────────────────────────────────
-app.use('/auth',   authRoutes);
-app.use('/orders', orderRoutes);
-app.use('/ais140', ais140Routes);
-app.use('/mining', miningRoutes);
+app.use('/api/auth',   authRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/ais140', ais140Routes);
+app.use('/api/mining', miningRoutes);
 
 // ─── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -31,12 +31,12 @@ app.get('/', (_req, res) => {
         version:  'v1.0.0',
         status:   'running',
         endpoints: {
-            auth:         'POST /auth/token',
-            create_order: 'POST /orders/create',
-            order_status: 'GET  /orders/status',
-            spoc_update:  'PUT  /orders/fitment/spoc',
-            ais140:       'POST /ais140',
-            mining:       'POST /mining',
+            auth:         'POST /api/auth/token',
+            create_order: 'POST /api/orders/create',
+            order_status: 'GET  /api/orders/status',
+            spoc_update:  'PUT  /api/orders/fitment/spoc',
+            ais140:       'POST /api/ais140',
+            mining:       'POST /api/mining',
             health:       'GET  /health',
         }
     });
