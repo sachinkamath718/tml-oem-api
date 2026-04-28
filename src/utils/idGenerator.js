@@ -17,7 +17,7 @@ function generateTrackingId() {
  * Example: TKT-3F2A9B1C
  */
 function generateTicketId() {
-    return `TKT-${uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
+    return uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
 }
 
 /**
