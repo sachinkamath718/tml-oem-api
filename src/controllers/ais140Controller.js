@@ -51,7 +51,6 @@ const createAIS140Request = async (req, res) => {
                 continue;
             }
 
-            // Check if VIN already in order → use same tracking_id
             let trackingId      = generateTrackingId();
             let orderTrackingId = null;
 
@@ -98,7 +97,10 @@ const createAIS140Request = async (req, res) => {
 
 /**
  * POST /ais140/ticket-status
- * Body: [{ "vin_no": "...", "ticket_no": "..." }]
+ *
+ * Request body (two formats accepted):
+ *   Format A (spec): { "err": null, "data": [{ "vin_no": "...", "ticket_no": "..." }] }
+ *   Format B (plain): [{ "vin_no": "...", "ticket_no": "..." }]
  *
  * Response: { "err": null, "data": [{ vin, ticket_no, status, remark, handler,
  *   handler_contact, process_datetime, certification_registration_datetime,
@@ -106,11 +108,13 @@ const createAIS140Request = async (req, res) => {
  */
 const getAIS140TicketStatus = async (req, res) => {
     try {
-        const requests = req.body;
+        // Accept both { err, data: [...] } and plain array
+        const body     = req.body;
+        const requests = Array.isArray(body) ? body : (body?.data || []);
 
         if (!Array.isArray(requests) || requests.length === 0) {
             return res.status(400).json({
-                err:  { code: 'INVALID_DATA', message: 'Request body must be a non-empty array of { vin_no, ticket_no }.' },
+                err:  { code: 'INVALID_DATA', message: 'Request body must contain a non-empty data array of { vin_no, ticket_no }.' },
                 data: null,
             });
         }
@@ -124,9 +128,12 @@ const getAIS140TicketStatus = async (req, res) => {
                 results.push({
                     vin: null, ticket_no: null, status: null,
                     remark: null, handler: null, handler_contact: null,
-                    process_datetime: null, certification_registration_datetime: null,
-                    certification_expiry_date: null, certificate_file_location: null,
-                    certificate_file_names: [], metadata: {},
+                    process_datetime: null,
+                    certification_registration_datetime: null,
+                    certification_expiry_date: null,
+                    certificate_file_location: null,
+                    certificate_file_names: [],
+                    metadata: {},
                     error: 'vin_no or ticket_no required',
                 });
                 continue;
@@ -147,9 +154,12 @@ const getAIS140TicketStatus = async (req, res) => {
                 results.push({
                     vin: vin_no || null, ticket_no: ticket_no || null,
                     status: null, remark: null, handler: null, handler_contact: null,
-                    process_datetime: null, certification_registration_datetime: null,
-                    certification_expiry_date: null, certificate_file_location: null,
-                    certificate_file_names: [], metadata: {},
+                    process_datetime: null,
+                    certification_registration_datetime: null,
+                    certification_expiry_date: null,
+                    certificate_file_location: null,
+                    certificate_file_names: [],
+                    metadata: {},
                     error: 'Ticket not found',
                 });
                 continue;
@@ -157,11 +167,9 @@ const getAIS140TicketStatus = async (req, res) => {
 
             const t = rows[0];
 
-            // Build certificate_file_names array
             const certFileNames = [];
             if (t.certificate_file_name) certFileNames.push(t.certificate_file_name);
 
-            // Parse metadata from handler_details
             let metadata = {};
             if (t.handler_details) {
                 metadata = typeof t.handler_details === 'string'
@@ -178,9 +186,6 @@ const getAIS140TicketStatus = async (req, res) => {
                 handler_contact:                    t.handler_contact || null,
                 process_datetime:                   t.process_datetime
                     ? new Date(t.process_datetime).toISOString().replace('Z', '')
-                    : null,
-                polling_datetime:                   t.polling_datetime
-                    ? new Date(t.polling_datetime).toISOString().replace('Z', '')
                     : null,
                 certification_registration_datetime: t.certification_registration_datetime
                     ? new Date(t.certification_registration_datetime).toISOString().replace('Z', '')

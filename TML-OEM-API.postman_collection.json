@@ -129,7 +129,7 @@
         "url": "{{base_url}}/ais140/ticket-status",
         "body": {
           "mode": "raw",
-          "raw": "[\n  { \"vin_no\": \"MAT612900LPK78001\", \"ticket_no\": null },\n  { \"vin_no\": \"MAT612900LPK78002\", \"ticket_no\": null }\n]",
+          "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT612900LPK78001\", \"ticket_no\": null },\n    { \"vin_no\": \"MAT612900LPK78002\", \"ticket_no\": null }\n  ]\n}",
           "options": { "raw": { "language": "json" } }
         },
         "description": "Query by vin_no OR ticket_no. Returns full ticket details per spec."
