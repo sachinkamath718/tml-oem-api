@@ -26,8 +26,8 @@ const updateSpoc = async (req, res) => {
 
         // ── Validate required fields ──────────────────────────────
         if (!tracking_id || !name || !contact_no || !email) {
-            return res.status(400).json({
-                err:  { code: 'INVALID_DATA', message: 'tracking_id, name, contact_no, and email are required.' },
+            return res.status(404).json({
+                err:  { code: 404, message: 'Tracking ID not found' },
                 data: null,
             });
         }
