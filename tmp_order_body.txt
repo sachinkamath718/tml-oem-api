@@ -1,0 +1,99 @@
+﻿{
+  "order_id": "TML-ORD-2024-01201",
+  "customer_details": {
+    "name": "Shree Ganesh Logistics Pvt Ltd",
+    "pan": "AAFCS7862Q",
+    "gst": "29AAFCS7862Q1ZK",
+    "email": "ops@shreeganeshlogistics.in",
+    "contact_number": "+918800441122"
+  },
+  "location_mappings": [
+    {
+      "location": {
+        "id": "LOC-PUN-01",
+        "address": "Survey No. 45, Bhosari Industrial Estate",
+        "city": "Pune",
+        "pincode": "411026",
+        "district": "Pune",
+        "state": "Maharashtra"
+      },
+      "spoc": {
+        "name": "Suresh Patil",
+        "contact_number": "+917709988001",
+        "email": "suresh.patil@shreeganesh.in"
+      },
+      "vehicle_details": [
+        {
+          "vin": "MAT458391RWE60021",
+          "registration_no": "MH12DE4570",
+          "engine_no": "CUMMINS6BT5300",
+          "model": "TATA Prima 4028.S",
+          "make": "TATA",
+          "variant": "4028.S HE",
+          "mfg_year": "2024",
+          "fuel_type": "DIESEL",
+          "emission_type": "BS6",
+          "rto_office_code": "MH12",
+          "rto_state": "MH",
+          "products": [
+            { "name": "AIS140",       "duration_in_years": 2,    "metadata": null },
+            { "name": "MINING",       "duration_in_years": 2,    "metadata": { "department": "Khanij MH" } },
+            { "name": "FLEET_TRACK",  "duration_in_years": null, "metadata": null },
+            { "name": "PANIC_BUTTON", "duration_in_years": null, "metadata": { "quantity": 1 } },
+            { "name": "IMMOBILIZER",  "duration_in_years": null, "metadata": { "quantity": 1 } }
+          ]
+        },
+        {
+          "vin": "MAT458391RWE60064",
+          "registration_no": "MH12DE4571",
+          "engine_no": "CUMMINS6BT5301",
+          "model": "TATA LPT 2518",
+          "make": "TATA",
+          "variant": "LPT 2518 6S",
+          "mfg_year": "2024",
+          "fuel_type": "DIESEL",
+          "emission_type": "BS6",
+          "rto_office_code": "MH12",
+          "rto_state": "MH",
+          "products": [
+            { "name": "AIS140", "duration_in_years": 2, "metadata": null }
+          ]
+        }
+      ]
+    },
+    {
+      "location": {
+        "id": "LOC-NGP-02",
+        "address": "Khasra No 112, Butibori MIDC",
+        "city": "Nagpur",
+        "pincode": "441108",
+        "district": "Nagpur",
+        "state": "Maharashtra"
+      },
+      "spoc": {
+        "name": "Dinesh Thakur",
+        "contact_number": "+919823001234",
+        "email": "dinesh.thakur@shreeganesh.in"
+      },
+      "vehicle_details": [
+        {
+          "vin": "MAT458391RWE60098",
+          "registration_no": "MH31GH7891",
+          "engine_no": "CUMMINS6BT5302",
+          "model": "TATA LPK 2516",
+          "make": "TATA",
+          "variant": "LPK 2516 6S",
+          "mfg_year": "2023",
+          "fuel_type": "DIESEL",
+          "emission_type": "BS6",
+          "rto_office_code": "MH31",
+          "rto_state": "MH",
+          "products": [
+            { "name": "AIS140", "duration_in_years": 2, "metadata": null },
+            { "name": "MINING", "duration_in_years": 3, "metadata": { "department": "Nagpur Khanij" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

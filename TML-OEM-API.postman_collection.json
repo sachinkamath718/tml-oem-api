@@ -1,7 +1,6 @@
 {
   "info": {
     "name": "TML OEM API",
-    "description": "TML OEM Integration — 8 APIs",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -12,7 +11,11 @@
   "item": [
     {
       "name": "1. Generate Token",
-      "event": [{ "listen": "test", "script": { "exec": ["var r=pm.response.json(); var t=r.access_token||(r.data&&r.data.access_token); if(t){pm.collectionVariables.set('token',t);}"], "type": "text/javascript" } }],
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var r = pm.response.json();",
+        "var tok = r.access_token || (r.data && r.data.access_token);",
+        "if (tok) { pm.collectionVariables.set('token', tok); console.log('Token saved'); }"
+      ], "type": "text/javascript" }}],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
@@ -20,16 +23,20 @@
         "body": {
           "mode": "urlencoded",
           "urlencoded": [
-            { "key": "client_id",     "value": "tml-client-id",     "type": "text" },
-            { "key": "client_secret", "value": "tml-client-secret", "type": "text" },
-            { "key": "grant_type",    "value": "client_credentials","type": "text" }
+            { "key": "client_id",     "value": "tml-client-id" },
+            { "key": "client_secret", "value": "tml-client-secret" },
+            { "key": "grant_type",    "value": "client_credentials" }
           ]
         }
       }
     },
     {
-      "name": "2. Order Creation API",
-      "event": [{ "listen": "test", "script": { "exec": ["var r=pm.response.json(); if(r.data&&r.data[0]&&r.data[0].order_tracking_id){pm.collectionVariables.set('tracking_id',r.data[0].order_tracking_id);}"], "type": "text/javascript" } }],
+      "name": "2. Order Creation",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var r = pm.response.json();",
+        "var tid = r.data && r.data[0] && r.data[0].order_tracking_id;",
+        "if (tid) { pm.collectionVariables.set('tracking_id', tid); console.log('tracking_id saved:', tid); }"
+      ], "type": "text/javascript" }}],
       "request": {
         "method": "POST",
         "header": [
@@ -40,14 +47,14 @@
         "url": "{{base_url}}/order",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"order_id\": \"TML-ORD-2024-01201\",\n  \"device_type\": \"TCU_4G_CAN\",\n  \"customer_details\": {\n    \"name\": \"Shree Ganesh Logistics Pvt Ltd\",\n    \"pan\": \"AAFCS7862Q\",\n    \"gst\": \"29AAFCS7862Q1ZK\",\n    \"email\": \"ops@shreeganeshlogistics.in\",\n    \"contact_number\": \"+918800441122\"\n  },\n  \"location_mappings\": [\n    {\n      \"location\": {\n        \"id\": \"LOC-PUN-01\",\n        \"address\": \"Survey No. 45, Bhosari Industrial Estate\",\n        \"city\": \"Pune\",\n        \"pincode\": \"411026\",\n        \"district\": \"Pune\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Suresh Patil\",\n        \"contact_number\": \"+917709988001\",\n        \"email\": \"suresh.patil@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE60042\",\n          \"registration_no\": \"MH12DE4570\",\n          \"engine_no\": \"CUMMINS6BT5300\",\n          \"model\": \"TATA Prima 4028.S\",\n          \"make\": \"TATA\",\n          \"variant\": \"4028.S HE\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 2, \"metadata\": { \"department\": \"Khanij MH\" } }\n          ]\n        },\n        {\n          \"vin\": \"MAT458391RWE60043\",\n          \"registration_no\": \"MH12DE4571\",\n          \"engine_no\": \"CUMMINS6BT5301\",\n          \"model\": \"TATA LPT 2518\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPT 2518 6S\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null }\n          ]\n        }\n      ]\n    },\n    {\n      \"location\": {\n        \"id\": \"LOC-NGP-02\",\n        \"address\": \"Khasra No 112, Butibori MIDC\",\n        \"city\": \"Nagpur\",\n        \"pincode\": \"441108\",\n        \"district\": \"Nagpur\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Dinesh Thakur\",\n        \"contact_number\": \"+919823001234\",\n        \"email\": \"dinesh.thakur@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE60044\",\n          \"registration_no\": \"MH31GH7891\",\n          \"engine_no\": \"CUMMINS6BT5302\",\n          \"model\": \"TATA LPK 2516\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPK 2516 6S\",\n          \"mfg_year\": \"2023\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH31\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 3, \"metadata\": { \"department\": \"Nagpur Khanij\" } }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+          "raw": "{\n  \"order_id\": \"TML-ORD-2024-01201\",\n  \"customer_details\": {\n    \"name\": \"Shree Ganesh Logistics Pvt Ltd\",\n    \"pan\": \"AAFCS7862Q\",\n    \"gst\": \"29AAFCS7862Q1ZK\",\n    \"email\": \"ops@shreeganeshlogistics.in\",\n    \"contact_number\": \"+918800441122\"\n  },\n  \"location_mappings\": [\n    {\n      \"location\": {\n        \"id\": \"LOC-PUN-01\",\n        \"address\": \"Survey No. 45, Bhosari Industrial Estate\",\n        \"city\": \"Pune\",\n        \"pincode\": \"411026\",\n        \"district\": \"Pune\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Suresh Patil\",\n        \"contact_number\": \"+917709988001\",\n        \"email\": \"suresh.patil@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE60021\",\n          \"registration_no\": \"MH12DE4570\",\n          \"engine_no\": \"CUMMINS6BT5300\",\n          \"model\": \"TATA Prima 4028.S\",\n          \"make\": \"TATA\",\n          \"variant\": \"4028.S HE\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\",       \"duration_in_years\": 2,    \"metadata\": null },\n            { \"name\": \"MINING\",       \"duration_in_years\": 2,    \"metadata\": { \"department\": \"Khanij MH\" } },\n            { \"name\": \"FLEET_TRACK\",  \"duration_in_years\": null, \"metadata\": null },\n            { \"name\": \"PANIC_BUTTON\", \"duration_in_years\": null, \"metadata\": { \"quantity\": 1 } },\n            { \"name\": \"IMMOBILIZER\",  \"duration_in_years\": null, \"metadata\": { \"quantity\": 1 } }\n          ]\n        },\n        {\n          \"vin\": \"MAT458391RWE60064\",\n          \"registration_no\": \"MH12DE4571\",\n          \"engine_no\": \"CUMMINS6BT5301\",\n          \"model\": \"TATA LPT 2518\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPT 2518 6S\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null }\n          ]\n        }\n      ]\n    },\n    {\n      \"location\": {\n        \"id\": \"LOC-NGP-02\",\n        \"address\": \"Khasra No 112, Butibori MIDC\",\n        \"city\": \"Nagpur\",\n        \"pincode\": \"441108\",\n        \"district\": \"Nagpur\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Dinesh Thakur\",\n        \"contact_number\": \"+919823001234\",\n        \"email\": \"dinesh.thakur@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE60098\",\n          \"registration_no\": \"MH31GH7891\",\n          \"engine_no\": \"CUMMINS6BT5302\",\n          \"model\": \"TATA LPK 2516\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPK 2516 6S\",\n          \"mfg_year\": \"2023\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH31\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 3, \"metadata\": { \"department\": \"Nagpur Khanij\" } }\n          ]\n        }\n      ]\n    }\n  ]\n}",
           "options": { "raw": { "language": "json" } }
         },
-        "description": "Creates order with 3 vehicles across 2 locations. AIS140+Mining tickets are created in BOTH order_vehicles AND ais140_tickets/mining_tickets tables with the SAME tracking_id. tracking_id auto-saved to {{tracking_id}}."
+        "description": "3 vehicles across 2 locations. First vehicle has all 5 products. tracking_id auto-saved to {{tracking_id}}."
       }
     },
     {
-      "name": "3. Order Status API",
+      "name": "3. Order Status",
       "request": {
         "method": "GET",
         "header": [
@@ -69,7 +76,7 @@
         "url": "{{base_url}}/order/fitment/spoc",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"tracking_id\": \"{{tracking_id}}\",\n  \"name\": \"Priya Mehta\",\n  \"contact_no\": \"+919004456789\",\n  \"email\": \"priya.mehta@shreeganesh.in\"\n}",
+          "raw": "{\n  \"tracking_id\": \"{{tracking_id}}\",\n  \"name\": \"Amit Sharma\",\n  \"contact_no\": \"+919123456789\",\n  \"email\": \"amit.sharma@abcfleet.com\"\n}",
           "options": { "raw": { "language": "json" } }
         }
       }
@@ -86,10 +93,10 @@
         "url": "{{base_url}}/ais140",
         "body": {
           "mode": "raw",
-          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK78001\",\n      \"iccid\": \"89914504200014599001\",\n      \"device_imei\": \"356938035651001\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"WP10G336E401\",\n      \"reg_number\": \"RJ14GC1001\",\n      \"rto_office_code\": \"RJ14\",\n      \"rto_state\": \"RJ\",\n      \"sim_expiry_date\": \"2027-06-30\",\n      \"vehicle_model\": \"TATA LPK 2516\",\n      \"mfg_year\": \"2024\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Rajputana Transport Co.\",\n      \"address\": \"Ward No. 7, Riico Industrial Area\",\n      \"city\": \"Jaipur\",\n      \"pincode\": \"302013\",\n      \"district\": \"Jaipur\",\n      \"state\": \"Rajasthan\",\n      \"mobile_no\": \"9414001234\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK78002\",\n      \"iccid\": \"89914504200014599002\",\n      \"device_imei\": \"356938035651002\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"WP10G336E402\",\n      \"reg_number\": \"RJ14GC1002\",\n      \"rto_office_code\": \"\",\n      \"rto_state\": \"\",\n      \"sim_expiry_date\": \"\",\n      \"vehicle_model\": \"TATA LPK 2516\",\n      \"mfg_year\": \"2024\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Rajputana Transport Co.\",\n      \"address\": \"Ward No. 7, Riico Industrial Area\",\n      \"city\": \"Jaipur\",\n      \"pincode\": \"302013\",\n      \"district\": \"Jaipur\",\n      \"state\": \"Rajasthan\",\n      \"mobile_no\": \"9414001234\"\n    }\n  }\n]",
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK78001\",\n      \"iccid\": \"89914504200014599001\",\n      \"device_imei\": \"356938035651001\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"WP10G336E401\",\n      \"reg_number\": \"RJ14GC1001\",\n      \"rto_office_code\": \"RJ14\",\n      \"rto_state\": \"RJ\",\n      \"sim_expiry_date\": \"2027-06-30\",\n      \"vehicle_model\": \"TATA LPK 2516\",\n      \"mfg_year\": \"2024\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Rajputana Transport Co.\",\n      \"address\": \"Ward No. 7, Riico Industrial Area\",\n      \"city\": \"Jaipur\",\n      \"pincode\": \"302013\",\n      \"district\": \"Jaipur\",\n      \"state\": \"Rajasthan\",\n      \"mobile_no\": \"9414001234\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK78002\",\n      \"iccid\": \"\",\n      \"device_imei\": \"\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"WP10G336E402\",\n      \"reg_number\": \"RJ14GC1002\",\n      \"rto_office_code\": \"\",\n      \"rto_state\": \"\",\n      \"sim_expiry_date\": \"\",\n      \"vehicle_model\": \"TATA LPK 2516\",\n      \"mfg_year\": \"2024\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Rajputana Transport Co.\",\n      \"address\": \"Ward No. 7, Riico Industrial Area\",\n      \"city\": \"Jaipur\",\n      \"pincode\": \"302013\",\n      \"district\": \"Jaipur\",\n      \"state\": \"Rajasthan\",\n      \"mobile_no\": \"9414001234\"\n    }\n  }\n]",
           "options": { "raw": { "language": "json" } }
         },
-        "description": "2 VINs: first is valid (gets ticket_no), second is missing rto_office_code/rto_state/sim_expiry_date (gets validation_errors). Demonstrates partial success (HTTP 206)."
+        "description": "VIN1 valid → ticket_no. VIN2 missing fields → validation_errors. Demonstrates partial success (206)."
       }
     },
     {
@@ -106,7 +113,8 @@
           "mode": "raw",
           "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK89001\",\n      \"iccid\": \"89914504200019980001\",\n      \"device_imei\": \"490154203240001\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"DCEC6CT8.3P300\",\n      \"reg_number\": \"JH10AB6001\",\n      \"department\": \"Jharkhand Khanij Vibhag\",\n      \"sim_expiry_date\": \"2027-01-31\",\n      \"vehicle_model\": \"TATA LPT 3118\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 3\n    },\n    \"customer_details\": {\n      \"name\": \"Jharcoal Mining Solutions Ltd\",\n      \"address\": \"Plot 22-B, Chandwa Industrial Area\",\n      \"city\": \"Latehar\",\n      \"pincode\": \"829206\",\n      \"district\": \"Latehar\",\n      \"state\": \"Jharkhand\",\n      \"mobile_no\": \"9334567890\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK89002\",\n      \"iccid\": \"\",\n      \"device_imei\": \"\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"DCEC6CT8.3P301\",\n      \"reg_number\": \"JH10AB6002\",\n      \"department\": \"\",\n      \"sim_expiry_date\": \"\",\n      \"vehicle_model\": \"TATA LPT 3118\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 0\n    },\n    \"customer_details\": {\n      \"name\": \"Jharcoal Mining Solutions Ltd\",\n      \"address\": \"Plot 22-B\",\n      \"city\": \"Latehar\",\n      \"pincode\": \"829206\",\n      \"district\": \"Latehar\",\n      \"state\": \"Jharkhand\",\n      \"mobile_no\": \"9334567890\"\n    }\n  }\n]",
           "options": { "raw": { "language": "json" } }
-        }
+        },
+        "description": "VIN1 valid → mining_ticket_no. VIN2 missing fields → validation_errors. Demonstrates partial success (206)."
       }
     },
     {
@@ -124,7 +132,7 @@
           "raw": "[\n  { \"vin_no\": \"MAT612900LPK78001\" }\n]",
           "options": { "raw": { "language": "json" } }
         },
-        "description": "Returns [{ vin, ticket_no, status, certificate_file_names }]. Query by vin_no OR ticket_no."
+        "description": "Query by vin_no OR ticket_no. Returns full ticket details per spec."
       }
     },
     {
@@ -142,14 +150,8 @@
           "raw": "[\n  { \"vin_no\": \"MAT612900LPK89001\" }\n]",
           "options": { "raw": { "language": "json" } }
         },
-        "description": "Returns [{ vin, mining_ticket_no, status, certificate_file_names }]. Query by vin_no OR mining_ticket_no."
+        "description": "Query by vin_no OR ticket_no. Returns full ticket details per spec."
       }
     }
   ]
 }
-
-
-
-
-
-
