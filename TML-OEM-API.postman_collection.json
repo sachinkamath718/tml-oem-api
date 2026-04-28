@@ -104,7 +104,7 @@
         "url": "{{base_url}}/mining",
         "body": {
           "mode": "raw",
-          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK89001\",\n      \"iccid\": \"89914504200019980001\",\n      \"device_imei\": \"490154203240001\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"DCEC6CT8.3P300\",\n      \"reg_number\": \"JH10AB6001\",\n      \"department\": \"Jharkhand Khanij Vibhag\",\n      \"sim_expiry_date\": \"2027-01-31\",\n      \"vehicle_model\": \"TATA LPT 3118\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 3\n    },\n    \"customer_details\": {\n      \"name\": \"Jharcoal Mining Solutions Ltd\",\n      \"address\": \"Plot 22-B, Chandwa Industrial Area\",\n      \"city\": \"Latehar\",\n      \"pincode\": \"829206\",\n      \"district\": \"Latehar\",\n      \"state\": \"Jharkhand\",\n      \"mobile_no\": \"9334567890\"\n    }\n  }\n]",
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK89001\",\n      \"iccid\": \"89914504200019980001\",\n      \"device_imei\": \"490154203240001\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"DCEC6CT8.3P300\",\n      \"reg_number\": \"JH10AB6001\",\n      \"department\": \"Jharkhand Khanij Vibhag\",\n      \"sim_expiry_date\": \"2027-01-31\",\n      \"vehicle_model\": \"TATA LPT 3118\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 3\n    },\n    \"customer_details\": {\n      \"name\": \"Jharcoal Mining Solutions Ltd\",\n      \"address\": \"Plot 22-B, Chandwa Industrial Area\",\n      \"city\": \"Latehar\",\n      \"pincode\": \"829206\",\n      \"district\": \"Latehar\",\n      \"state\": \"Jharkhand\",\n      \"mobile_no\": \"9334567890\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT612900LPK89002\",\n      \"iccid\": \"\",\n      \"device_imei\": \"\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"DCEC6CT8.3P301\",\n      \"reg_number\": \"JH10AB6002\",\n      \"department\": \"\",\n      \"sim_expiry_date\": \"\",\n      \"vehicle_model\": \"TATA LPT 3118\",\n      \"mfg_year\": \"2024\",\n      \"duration_in_year\": 0\n    },\n    \"customer_details\": {\n      \"name\": \"Jharcoal Mining Solutions Ltd\",\n      \"address\": \"Plot 22-B\",\n      \"city\": \"Latehar\",\n      \"pincode\": \"829206\",\n      \"district\": \"Latehar\",\n      \"state\": \"Jharkhand\",\n      \"mobile_no\": \"9334567890\"\n    }\n  }\n]",
           "options": { "raw": { "language": "json" } }
         }
       }
@@ -147,6 +147,7 @@
     }
   ]
 }
+
 
 
 

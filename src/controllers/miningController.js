@@ -3,12 +3,12 @@ const { generateTrackingId, generateTicketId } = require('../utils/idGenerator')
 
 const validateMiningVehicle = (vd) => {
     const errors = [];
-    if (!vd.vin)              errors.push('vin is required');
-    if (!vd.iccid)            errors.push('iccid is required');
-    if (!vd.device_imei)      errors.push('device_imei is required');
-    if (!vd.department)       errors.push('department is required');
-    if (!vd.sim_expiry_date)  errors.push('sim_expiry_date is required');
-    if (!vd.duration_in_year) errors.push('duration_in_year is required');
+    if (!vd.vin)              errors.push('Invalid VIN');
+    if (!vd.iccid)            errors.push('Missing POI document');
+    if (!vd.device_imei)      errors.push('Missing device IMEI');
+    if (!vd.department)       errors.push('Invalid RTO code');
+    if (!vd.sim_expiry_date)  errors.push('Missing SIM expiry date');
+    if (!vd.duration_in_year) errors.push('Missing certificate validity duration');
     return errors;
 };
 
