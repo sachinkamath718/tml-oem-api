@@ -12,28 +12,32 @@ const createOrder = async (req, res) => {
         const clientId    = req.client.client_id;
         const clientRefId = req.client.client_ref_id;
 
-        // ── Validate ──────────────────────────────────────────────
-        if (!order_id) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'order_id is required.' }, data: null });
+        // ── Validate top-level fields ─────────────────────────────
+        if (!order_id || !customer_details || !Array.isArray(location_mappings) || location_mappings.length === 0) {
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
         }
-        if (!customer_details?.name || !customer_details?.email || !customer_details?.contact_number) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'customer_details.name, email, and contact_number are required.' }, data: null });
-        }
-        if (!Array.isArray(location_mappings) || location_mappings.length === 0) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'location_mappings must be a non-empty array.' }, data: null });
+        if (!customer_details.name || !customer_details.email || !customer_details.contact_number) {
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
         }
 
-        // ── Flatten vehicles + check for duplicate VINs ───────────
+        // ── Flatten vehicles + validate each ──────────────────────
         const allVehicles = [];
         const vinSet      = new Set();
         for (const mapping of location_mappings) {
             const { location, spoc, vehicle_details } = mapping;
             if (!Array.isArray(vehicle_details) || vehicle_details.length === 0) {
-                return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'vehicle_details must be a non-empty array in each location_mapping.' }, data: null });
+                return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
             }
             for (const v of vehicle_details) {
-                if (!v.vin) return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Each vehicle must have a vin.' }, data: null });
-                if (vinSet.has(v.vin)) return res.status(400).json({ err: { code: 'INVALID_DATA', message: `Duplicate VIN in request: ${v.vin}` }, data: null });
+                // All required vehicle fields must be present
+                if (!v.vin || !v.registration_no || !v.engine_no || !v.model ||
+                    !v.make || !v.mfg_year || !v.fuel_type || !v.emission_type ||
+                    !v.rto_office_code || !v.rto_state) {
+                    return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
+                }
+                if (vinSet.has(v.vin)) {
+                    return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
+                }
                 vinSet.add(v.vin);
                 allVehicles.push({ ...v, location, spoc });
             }
