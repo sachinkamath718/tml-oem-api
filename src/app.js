@@ -14,10 +14,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Routes ──────────────────────────────────────────────────
-app.use('/api/auth',   authRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/ais140', ais140Routes);
-app.use('/api/mining', miningRoutes);
+app.use('/auth',   authRoutes);
+app.use('/orders', orderRoutes);
+app.use('/ais140', ais140Routes);
+app.use('/mining', miningRoutes);
 
 // ─── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {
