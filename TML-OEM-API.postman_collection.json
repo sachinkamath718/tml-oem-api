@@ -121,7 +121,7 @@
         "url": "{{base_url}}/ais140/ticket-status",
         "body": {
           "mode": "raw",
-          "raw": "[\n  { \"vin_no\": \"MAT612900LPK78001\" },\n  { \"ticket_no\": \"AIS-TKT-REPLACE-ME\" }\n]",
+          "raw": "[\n  { \"vin_no\": \"MAT612900LPK78001\" }\n]",
           "options": { "raw": { "language": "json" } }
         },
         "description": "Returns [{ vin, ticket_no, status, certificate_file_names }]. Query by vin_no OR ticket_no."
@@ -139,7 +139,7 @@
         "url": "{{base_url}}/mining/ticket-status",
         "body": {
           "mode": "raw",
-          "raw": "[\n  { \"vin_no\": \"MAT612900LPK89001\" },\n  { \"mining_ticket_no\": \"MIN-TKT-REPLACE-ME\" }\n]",
+          "raw": "[\n  { \"vin_no\": \"MAT612900LPK89001\" }\n]",
           "options": { "raw": { "language": "json" } }
         },
         "description": "Returns [{ vin, mining_ticket_no, status, certificate_file_names }]. Query by vin_no OR mining_ticket_no."

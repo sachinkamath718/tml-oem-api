@@ -144,10 +144,15 @@ const getAIS140TicketStatus = async (req, res) => {
             }
 
             if (!rows.length) {
-                return res.status(404).json({
-                    err:  { code: 404, message: 'Ticket not found' },
-                    data: null,
+                results.push({
+                    vin: vin_no || null, ticket_no: ticket_no || null,
+                    status: null, remark: null, handler: null, handler_contact: null,
+                    process_datetime: null, certification_registration_datetime: null,
+                    certification_expiry_date: null, certificate_file_location: null,
+                    certificate_file_names: [], metadata: {},
+                    error: 'Ticket not found',
                 });
+                continue;
             }
 
             const t = rows[0];
