@@ -179,6 +179,9 @@ const getAIS140TicketStatus = async (req, res) => {
                 process_datetime:                   t.process_datetime
                     ? new Date(t.process_datetime).toISOString().replace('Z', '')
                     : null,
+                polling_datetime:                   t.polling_datetime
+                    ? new Date(t.polling_datetime).toISOString().replace('Z', '')
+                    : null,
                 certification_registration_datetime: t.certification_registration_datetime
                     ? new Date(t.certification_registration_datetime).toISOString().replace('Z', '')
                     : null,

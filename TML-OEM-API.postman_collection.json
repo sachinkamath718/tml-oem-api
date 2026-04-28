@@ -129,7 +129,7 @@
         "url": "{{base_url}}/ais140/ticket-status",
         "body": {
           "mode": "raw",
-          "raw": "[\n  { \"vin_no\": \"MAT612900LPK78001\" }\n]",
+          "raw": "[\n  { \"vin_no\": \"MAT612900LPK78001\", \"ticket_no\": null },\n  { \"vin_no\": \"MAT612900LPK78002\", \"ticket_no\": null }\n]",
           "options": { "raw": { "language": "json" } }
         },
         "description": "Query by vin_no OR ticket_no. Returns full ticket details per spec."
@@ -147,7 +147,7 @@
         "url": "{{base_url}}/mining/ticket-status",
         "body": {
           "mode": "raw",
-          "raw": "[\n  { \"vin_no\": \"MAT612900LPK89001\" }\n]",
+          "raw": "[\n  { \"vin_no\": \"MAT612900LPK89001\", \"ticket_no\": null },\n  { \"vin_no\": \"MAT612900LPK89002\", \"ticket_no\": null }\n]",
           "options": { "raw": { "language": "json" } }
         },
         "description": "Query by vin_no OR ticket_no. Returns full ticket details per spec."
