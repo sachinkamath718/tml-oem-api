@@ -152,4 +152,64 @@ CREATE TABLE IF NOT EXISTS mining_tickets (
   INDEX idx_tracking_id (tracking_id)
 );
 
+-- ============================================================
+-- Migration: Add missing handler/status/certification columns
+-- Safe to run on existing Railway DB — skips if column exists
+-- ============================================================
+
+-- ais140_tickets: handler/status fields
+SET @tbl = 'ais140_tickets';
+
+SET @col = 'remark';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN remark TEXT NULL COMMENT ''Status remark or notes'' AFTER handler_details','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'handler';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN handler VARCHAR(255) NULL COMMENT ''Assigned handler name'' AFTER remark','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'handler_contact';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN handler_contact VARCHAR(100) NULL COMMENT ''Handler phone/email'' AFTER handler','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'process_datetime';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN process_datetime DATETIME NULL COMMENT ''When ticket was processed'' AFTER handler_contact','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ais140_tickets: AIS140-specific certification fields
+SET @col = 'certification_registration_datetime';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN certification_registration_datetime DATETIME NULL COMMENT ''When certificate was registered'' AFTER process_datetime','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'certification_expiry_date';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN certification_expiry_date DATE NULL COMMENT ''Certificate expiry date'' AFTER certification_registration_datetime','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'certificate_file_location';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE ais140_tickets ADD COLUMN certificate_file_location VARCHAR(1000) NULL COMMENT ''Public URL / S3 URL of certificate'' AFTER certification_expiry_date','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- mining_tickets: handler/status fields
+SET @tbl = 'mining_tickets';
+
+SET @col = 'remark';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE mining_tickets ADD COLUMN remark TEXT NULL COMMENT ''Status remark or notes'' AFTER handler_details','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'handler';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE mining_tickets ADD COLUMN handler VARCHAR(255) NULL COMMENT ''Assigned handler name'' AFTER remark','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'handler_contact';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE mining_tickets ADD COLUMN handler_contact VARCHAR(100) NULL COMMENT ''Handler phone/email'' AFTER handler','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'process_datetime';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE mining_tickets ADD COLUMN process_datetime DATETIME NULL COMMENT ''When ticket was processed'' AFTER handler_contact','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col = 'polling_datetime';
+SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE mining_tickets ADD COLUMN polling_datetime DATETIME NULL COMMENT ''Last polling timestamp'' AFTER process_datetime','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SHOW TABLES;
