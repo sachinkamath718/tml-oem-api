@@ -1,101 +1,145 @@
 const pool = require('../config/db');
 
 /**
- * GET /orders/status?trackingId=TRK...
+ * Maps DB status to spec status string
+ */
+const mapStatus = (s) => ({
+    'pending':     'PENDING',
+    'in_progress': 'IN_PROGRESS',
+    'completed':   'COMPLETED',
+    'on_hold':     'ON_HOLD',
+    'failed':      'FAILED',
+})[s] || 'PENDING';
+
+/**
+ * Converts a date to Unix timestamp in milliseconds
+ */
+const toMs = (d) => d ? new Date(d).getTime() : null;
+
+/**
+ * GET /order/status?trackingId={trackingId}
+ *
+ * Response:
+ * {
+ *   "err": null,
+ *   "data": {
+ *     "tracking_id": "TRK...",
+ *     "vin": "MA3...",
+ *     "tracking_info": [
+ *       { "stage": "ORDER_CREATED",  "status": "COMPLETED",   "updated_at": 1710158400000, "metadata": {...} },
+ *       { "stage": "TCU_SHIPPED",    "status": "COMPLETED",   "updated_at": 1710244800000, "metadata": {...} },
+ *       { "stage": "TCU_DELIVERED",  "status": "COMPLETED",   "updated_at": 1710331200000, "metadata": {...} },
+ *       { "stage": "DEVICE_INSTALLED","status": "IN_PROGRESS","updated_at": 1710417600000, "metadata": {...} }
+ *     ]
+ *   }
+ * }
  */
 const getOrderStatus = async (req, res) => {
     try {
         const { trackingId } = req.query;
 
-        // ── Step 4: Validate ──────────────────────────────────────
         if (!trackingId) {
-            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'trackingId is required' }, data: null });
+            return res.status(400).json({
+                err:  { code: 'INVALID_DATA', message: 'trackingId is required' },
+                data: null,
+            });
         }
 
-        // ── Step 5: Look up order ─────────────────────────────────
+        // ── Fetch order ───────────────────────────────────────────
         const [orderRows] = await pool.execute(
             `SELECT * FROM orders WHERE tracking_id = ? LIMIT 1`, [trackingId]
         );
 
         if (!orderRows.length) {
-            return res.status(404).json({ err: { code: 'NOT_FOUND', message: 'No order found for this trackingId' }, data: null });
+            return res.status(404).json({
+                err:  { code: 404, message: 'Tracking ID not found' },
+                data: null,
+            });
         }
 
         const order = orderRows[0];
-        const cd    = order.customer_details
-            ? (typeof order.customer_details === 'string' ? JSON.parse(order.customer_details) : order.customer_details)
-            : {};
 
-        // ── Fetch all vehicle tickets ─────────────────────────────
+        // ── Fetch first vehicle for this order ─────────────────────
         const [vehicleRows] = await pool.execute(
-            `SELECT vin, ticket_id, status, stage_metadata, ais140_ticket_no, mining_ticket_no,
-                    dispatch_location, registration_no, model, make
-             FROM order_vehicles WHERE tracking_id = ? ORDER BY created_at ASC`,
+            `SELECT vin, status, stage_metadata, created_at FROM order_vehicles
+             WHERE tracking_id = ? ORDER BY created_at ASC LIMIT 1`,
             [trackingId]
         );
 
-        // ── Step 6: Build stage-wise status per ticket ────────────
-        const tickets = vehicleRows.map(v => {
-            let stages = {};
-            if (v.stage_metadata) {
-                stages = typeof v.stage_metadata === 'string'
-                    ? JSON.parse(v.stage_metadata)
-                    : v.stage_metadata;
-            }
-            return {
-                ticket_id:        v.ticket_id,
-                vin:              v.vin,
-                status:           v.status.charAt(0).toUpperCase() + v.status.slice(1).replace('_', ' '),
-                ais140_ticket_no: v.ais140_ticket_no,
-                mining_ticket_no: v.mining_ticket_no,
-                stages,
-            };
-        });
+        const vehicle = vehicleRows[0] || {};
+        const vin     = vehicle.vin || null;
 
-        // ── Tab-wise counts (for dashboard/kanban view) ───────────
-        const countByStatus = (rows) => ({
-            pending:     rows.filter(r => r.status === 'pending').length,
-            in_progress: rows.filter(r => r.status === 'in_progress').length,
-            completed:   rows.filter(r => r.status === 'completed').length,
-            on_hold:     rows.filter(r => r.status === 'on_hold').length,
-            failed:      rows.filter(r => r.status === 'failed').length,
-        });
+        // ── Fetch ticket records for each stage ────────────────────
+        const [[shipRows]]   = await Promise.all([
+            pool.execute(`SELECT status, created_at, updated_at, courier, awb_number, expected_delivery, dispatched_at, metadata FROM shipment_tickets WHERE tracking_id = ? ORDER BY created_at ASC LIMIT 1`, [trackingId]),
+        ]);
+        const [[delRows]]    = await Promise.all([
+            pool.execute(`SELECT status, created_at, updated_at, delivered_to, delivery_date, metadata FROM delivery_tickets WHERE tracking_id = ? ORDER BY created_at ASC LIMIT 1`, [trackingId]),
+        ]);
+        const [[instRows]]   = await Promise.all([
+            pool.execute(`SELECT status, created_at, updated_at, technician_name, scheduled_date, metadata FROM installation_tickets WHERE tracking_id = ? ORDER BY created_at ASC LIMIT 1`, [trackingId]),
+        ]);
 
-        const [shipRows]   = await pool.execute(`SELECT status FROM shipment_tickets WHERE tracking_id=?`, [trackingId]);
-        const [delRows]    = await pool.execute(`SELECT status FROM delivery_tickets WHERE tracking_id=?`, [trackingId]);
-        const [instRows]   = await pool.execute(`SELECT status FROM installation_tickets WHERE tracking_id=?`, [trackingId]);
-        const [ais140Rows] = await pool.execute(`SELECT status FROM ais140_tickets WHERE tracking_id=?`, [trackingId]);
-        const [mineRows]   = await pool.execute(`SELECT status FROM mining_tickets WHERE tracking_id=?`, [trackingId]);
+        const ship = shipRows || null;
+        const del  = delRows  || null;
+        const inst = instRows || null;
 
-        const tabs = {
-            orders:       countByStatus(vehicleRows),
-            shipment:     countByStatus(shipRows),
-            delivery:     countByStatus(delRows),
-            installation: countByStatus(instRows),
-        };
-        if (ais140Rows.length) tabs.ais140  = countByStatus(ais140Rows);
-        if (mineRows.length)   tabs.mining  = countByStatus(mineRows);
+        // ── Build tracking_info stages ─────────────────────────────
+        const tracking_info = [
+            {
+                stage:      'ORDER_CREATED',
+                status:     'COMPLETED',
+                updated_at: toMs(order.created_at),
+                metadata: {
+                    order_id:   order.tml_order_id || order.order_number,
+                    created_by: order.created_by || 'system',
+                },
+            },
+            {
+                stage:      'TCU_SHIPPED',
+                status:     ship ? mapStatus(ship.status) : 'PENDING',
+                updated_at: ship ? toMs(ship.updated_at || ship.created_at) : null,
+                metadata:   ship ? {
+                    courier:           ship.courier           || null,
+                    tracking_number:   ship.awb_number        || null,
+                    expected_delivery: ship.expected_delivery ? ship.expected_delivery.toISOString().split('T')[0] : null,
+                } : {},
+            },
+            {
+                stage:      'TCU_DELIVERED',
+                status:     del ? mapStatus(del.status) : 'PENDING',
+                updated_at: del ? toMs(del.updated_at || del.created_at) : null,
+                metadata:   del ? {
+                    delivered_to:  del.delivered_to  || null,
+                    delivery_date: del.delivery_date ? del.delivery_date.toISOString().split('T')[0] : null,
+                } : {},
+            },
+            {
+                stage:      'DEVICE_INSTALLED',
+                status:     inst ? mapStatus(inst.status) : 'PENDING',
+                updated_at: inst ? toMs(inst.updated_at || inst.created_at) : null,
+                metadata:   inst ? {
+                    technician_name: inst.technician_name || null,
+                    scheduled_date:  inst.scheduled_date ? inst.scheduled_date.toISOString().split('T')[0] : null,
+                } : {},
+            },
+        ];
 
-        // ── Step 7: Return response ───────────────────────────────
         return res.status(200).json({
             err:  null,
             data: {
-                order_id:      order.tml_order_id,
-                order_number:  order.order_number,
                 tracking_id:   order.tracking_id,
-                status:        order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' '),
-                customer_name: cd.name  || null,
-                customer_email: cd.email || null,
-                total_vehicles: order.total_vehicles,
-                created_at:    order.created_at,
-                tickets,
-                tabs,
-            }
+                vin,
+                tracking_info,
+            },
         });
 
     } catch (err) {
         console.error('[getOrderStatus] Error:', err);
-        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
+        return res.status(500).json({
+            err:  { code: 'SERVER_ERROR', message: 'Internal server error.' },
+            data: null,
+        });
     }
 };
 
