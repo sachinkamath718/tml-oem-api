@@ -103,12 +103,13 @@ const createMiningRequest = async (req, res) => {
  */
 const getMiningTicketStatus = async (req, res) => {
     try {
-        // AFTER — handles both wrapped { err, data: [...] } and plain array
-        const requests = Array.isArray(req.body) ? req.body : req.body?.data;
+        // Accept both { err, data: [...] } and plain array
+        const body     = req.body;
+        const requests = Array.isArray(body) ? body : (body?.data || []);
 
         if (!Array.isArray(requests) || requests.length === 0) {
             return res.status(400).json({
-                err:  { code: 'INVALID_DATA', message: 'Request body must be a non-empty array of { vin_no, ticket_no }.' },
+                err:  { code: 'INVALID_DATA', message: 'Request body must contain a non-empty data array of { vin_no, ticket_no }.' },
                 data: null,
             });
         }
