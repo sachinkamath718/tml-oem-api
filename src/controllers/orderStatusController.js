@@ -39,8 +39,8 @@ const getOrderStatus = async (req, res) => {
         const { trackingId } = req.query;
 
         if (!trackingId) {
-            return res.status(400).json({
-                err:  { code: 'INVALID_DATA', message: 'trackingId is required' },
+            return res.status(404).json({
+                err:  { code: 404, message: 'Tracking ID not found' },
                 data: null,
             });
         }
