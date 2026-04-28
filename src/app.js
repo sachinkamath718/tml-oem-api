@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ─── Routes ──────────────────────────────────────────────────
 app.use('/auth',   authRoutes);
-app.use('/orders', orderRoutes);
+app.use('/order',  orderRoutes);
 app.use('/ais140', ais140Routes);
 app.use('/mining', miningRoutes);
 
