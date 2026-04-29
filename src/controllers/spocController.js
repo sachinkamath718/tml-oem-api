@@ -32,11 +32,11 @@ const updateSpoc = async (req, res) => {
             });
         }
 
-        // ── Verify tracking_id exists ─────────────────────────────
-        const [orders] = await pool.execute(
-            `SELECT id FROM orders WHERE tracking_id = ? LIMIT 1`, [tracking_id]
+        // ── Verify tracking_id exists (vehicle-level tracking ID) ──
+        const [vehicles] = await pool.execute(
+            `SELECT id FROM order_vehicles WHERE tracking_id = ? LIMIT 1`, [tracking_id]
         );
-        if (!orders.length) {
+        if (!vehicles.length) {
             return res.status(404).json({
                 err:  { code: 404, message: 'Tracking ID not found' },
                 data: null,
