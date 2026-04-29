@@ -11,6 +11,7 @@ const pool = mysql.createPool({
     connectionLimit:    2,      // Keep low for serverless
     queueLimit:         0,
     connectTimeout:     30000,  // 30s timeout for cold starts
+    timezone:           '+00:00', // Always read/write timestamps as UTC — toIST() converts to IST for responses
     ssl:                { rejectUnauthorized: false }, // Required for Railway
 });
 
