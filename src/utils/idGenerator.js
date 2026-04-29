@@ -1,29 +1,39 @@
 const { v4: uuidv4 } = require('uuid');
 
+/** Helper: format a Date as IST ISO string using Node.js IANA timezone DB */
+function _formatIST(d) {
+    // sv-SE locale gives 'YYYY-MM-DD HH:mm:ss' — clean to convert to ISO
+    const fmt = new Intl.DateTimeFormat('sv-SE', {
+        timeZone:       'Asia/Kolkata',
+        year:           'numeric',
+        month:          '2-digit',
+        day:            '2-digit',
+        hour:           '2-digit',
+        minute:         '2-digit',
+        second:         '2-digit',
+        hour12:         false,
+    });
+    return fmt.format(d).replace(' ', 'T') + '+05:30';
+}
+
 /** Returns current IST time as ISO string (UTC+5:30) */
 function nowIST() {
-    const utcMs = Date.now();
-    const ist   = new Date(utcMs + 5.5 * 60 * 60 * 1000);
-    return ist.toISOString().replace('Z', '+05:30');
+    return _formatIST(new Date());
 }
 
 /**
- * Converts a MySQL TIMESTAMP/DATETIME value to IST ISO string.
- * Handles both Date objects and MySQL datetime strings ('YYYY-MM-DD HH:MM:SS').
+ * Converts a MySQL TIMESTAMP/DATETIME/Date to IST ISO string.
+ * Handles both Date objects and MySQL strings ('YYYY-MM-DD HH:MM:SS').
  */
 function toIST(date) {
     if (!date) return null;
-    let utcMs;
-    if (date instanceof Date) {
-        utcMs = date.getTime();
-    } else {
-        // MySQL returns strings like '2026-04-29 11:48:37'
-        // Append 'Z' to force UTC interpretation
-        const isoStr = String(date).replace(' ', 'T').replace(/(\.\d+)?$/, 'Z');
-        utcMs = new Date(isoStr).getTime();
-    }
-    const ist = new Date(utcMs + 5.5 * 60 * 60 * 1000);
-    return ist.toISOString().replace('Z', '+05:30');
+    // If it's a Date object, use directly
+    // If it's a MySQL string like '2026-04-29 11:52:19', append Z to parse as UTC
+    const d = date instanceof Date
+        ? date
+        : new Date(String(date).replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return null;
+    return _formatIST(d);
 }
 
 /** Returns IST datetime as Unix ms (for numeric updated_at fields) */
