@@ -1,9 +1,15 @@
 const pool = require('../config/db');
-const { generateTrackingId, generateTicketId, generateOrderNumber } = require('../utils/idGenerator');
+const { generateTrackingId, generateTicketId, generateOrderNumber, nowIST } = require('../utils/idGenerator');
 
 /**
  * POST /orders/create
- * order_tracking_id = ais140_ticket_no = mining_ticket_no (same shared ID)
+ *
+ * ID Design (fixed):
+ *   orderTrackingId   — one per order   (orders.tracking_id)
+ *   vehicleTrackingId — one per vehicle  (order_vehicles.tracking_id)
+ *   ticketNo          — one per vehicle  (TKT-XXXX) for shipment/delivery/install
+ *   ais140TicketNo    — per vehicle      (AIS-TKT-XXXX), unique in ais140_tickets
+ *   miningTicketNo    — per vehicle      (MIN-TKT-XXXX), unique in mining_tickets
  */
 const createOrder = async (req, res) => {
     const conn = await pool.getConnection();
@@ -12,7 +18,7 @@ const createOrder = async (req, res) => {
         const clientId    = req.client.client_id;
         const clientRefId = req.client.client_ref_id;
 
-        // ── Validate top-level fields ─────────────────────────────
+        // ── Validate top-level fields ──────────────────────────────
         if (!order_id || !customer_details || !Array.isArray(location_mappings) || location_mappings.length === 0) {
             return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
         }
@@ -20,7 +26,7 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
         }
 
-        // ── Flatten vehicles + validate each ──────────────────────
+        // ── Flatten + validate vehicles ────────────────────────────
         const allVehicles = [];
         const vinSet      = new Set();
         for (const mapping of location_mappings) {
@@ -29,7 +35,6 @@ const createOrder = async (req, res) => {
                 return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Invalid vehicle details provided' }, data: null });
             }
             for (const v of vehicle_details) {
-                // All required vehicle fields must be present
                 if (!v.vin || !v.registration_no || !v.engine_no || !v.model ||
                     !v.make || !v.mfg_year || !v.fuel_type || !v.emission_type ||
                     !v.rto_office_code || !v.rto_state) {
@@ -43,21 +48,20 @@ const createOrder = async (req, res) => {
             }
         }
 
-        const orderNumber    = generateOrderNumber();
-        const trackingId     = generateTrackingId();  // ONE shared ID for entire order
-        const orderCreatedAt = new Date().toISOString();
-        const now            = new Date();
+        const orderNumber     = generateOrderNumber();
+        const orderTrackingId = generateTrackingId(); // order-level, stays same for all vehicles
+        const createdAtIST    = nowIST();
 
         await conn.beginTransaction();
 
-        // ── Insert order ──────────────────────────────────────────
+        // ── Insert order ───────────────────────────────────────────
         const [orderResult] = await conn.execute(
             `INSERT INTO orders
              (order_number, tml_order_id, tracking_id, client_ref_id, oem_name, device_type,
               total_vehicles, status, customer_details, created_by)
              VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
             [
-                orderNumber, order_id, trackingId, clientRefId,
+                orderNumber, order_id, orderTrackingId, clientRefId,
                 customer_details.name, device_type || null,
                 allVehicles.length,
                 JSON.stringify(customer_details),
@@ -66,69 +70,69 @@ const createOrder = async (req, res) => {
         );
         const orderId = orderResult.insertId;
 
-        // ── Per-vehicle processing ────────────────────────────────
+        // ── Order-level audit log ──────────────────────────────────
+        await conn.execute(
+            `INSERT INTO order_status_history (order_id, stage, to_status, changed_by, notes, metadata)
+             VALUES (?, 'ORDER_CREATED', 'pending', ?, 'Order created', ?)`,
+            [orderId, clientId, JSON.stringify({
+                event:             'order_created',
+                timestamp_ist:     createdAtIST,
+                total_vins:        allVehicles.length,
+                order_tracking_id: orderTrackingId,
+            })]
+        );
+
         const tickets = [];
 
+        // ── Per-vehicle processing ─────────────────────────────────
         for (const vehicle of allVehicles) {
-            const ticketId   = generateTicketId();
-            const ticketNo   = `TKT-${ticketId}`;   // main ticket for shipment/delivery/installation
+            // Every vehicle gets its OWN unique tracking ID and ticket numbers
+            const vehicleTrackingId = generateTrackingId();               // unique per vehicle
+            const ticketNo          = `TKT-${generateTicketId()}`;        // shipment/delivery/install
+            const hasAIS140         = (vehicle.products || []).some(p => p.name === 'AIS140');
+            const hasMINING         = (vehicle.products || []).some(p => p.name === 'MINING');
+            const ais140TicketNo    = hasAIS140 ? `AIS-TKT-${generateTicketId()}` : null;
+            const miningTicketNo    = hasMINING  ? `MIN-TKT-${generateTicketId()}` : null;
 
-            const hasAIS140  = (vehicle.products || []).some(p => p.name === 'AIS140');
-            const hasMINING  = (vehicle.products || []).some(p => p.name === 'MINING');
-
-            // ── All three use the SAME tracking_id ─────────────────
-            const ais140TicketNo = hasAIS140 ? trackingId : null;
-            const miningTicketNo = hasMINING  ? trackingId : null;
-
-            const initialStage = { 'Pending': { entered_at: now.toISOString() } };
-
-            // Insert into order_vehicles
+            // order_vehicles
             await conn.execute(
                 `INSERT INTO order_vehicles
                  (order_id, vin, ticket_id, tracking_id, dispatch_location,
                   registration_no, engine_no, model, make, variant, mfg_year,
                   fuel_type, emission_type, rto_office_code, rto_state,
-                  products, ais140_ticket_no, mining_ticket_no, status, stage_metadata)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?)`,
+                  products, ais140_ticket_no, mining_ticket_no, status)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending')`,
                 [
-                    orderId, vehicle.vin, ticketNo, trackingId,
+                    orderId, vehicle.vin, ticketNo, vehicleTrackingId,
                     vehicle.location?.address || vehicle.location?.city || null,
-                    vehicle.registration_no || null,
-                    vehicle.engine_no       || null,
-                    vehicle.model           || null,
-                    vehicle.make            || null,
-                    vehicle.variant         || null,
-                    vehicle.mfg_year        || null,
-                    vehicle.fuel_type       || null,
-                    vehicle.emission_type   || null,
-                    vehicle.rto_office_code || null,
-                    vehicle.rto_state       || null,
+                    vehicle.registration_no, vehicle.engine_no, vehicle.model,
+                    vehicle.make, vehicle.variant || null, vehicle.mfg_year,
+                    vehicle.fuel_type, vehicle.emission_type,
+                    vehicle.rto_office_code, vehicle.rto_state,
                     JSON.stringify(vehicle.products || []),
-                    ais140TicketNo,
-                    miningTicketNo,
-                    JSON.stringify(initialStage),
+                    ais140TicketNo, miningTicketNo,
                 ]
             );
 
-            // ── Shipment ticket ────────────────────────────────────
+            // Shipment ticket
             await conn.execute(
                 `INSERT INTO shipment_tickets (ticket_no, vin, tracking_id, order_id, status) VALUES (?,?,?,?,'pending')`,
-                [ticketNo, vehicle.vin, trackingId, orderId]
+                [ticketNo, vehicle.vin, vehicleTrackingId, orderId]
             );
 
-            // ── Delivery ticket ────────────────────────────────────
+            // Delivery ticket
             await conn.execute(
                 `INSERT INTO delivery_tickets (ticket_no, vin, tracking_id, order_id, status, delivery_address) VALUES (?,?,?,?,'pending',?)`,
-                [ticketNo, vehicle.vin, trackingId, orderId, vehicle.location?.address || null]
+                [ticketNo, vehicle.vin, vehicleTrackingId, orderId, vehicle.location?.address || null]
             );
 
-            // ── Installation ticket ────────────────────────────────
+            // Installation ticket
             await conn.execute(
                 `INSERT INTO installation_tickets (ticket_no, vin, tracking_id, order_id, status) VALUES (?,?,?,?,'pending')`,
-                [ticketNo, vehicle.vin, trackingId, orderId]
+                [ticketNo, vehicle.vin, vehicleTrackingId, orderId]
             );
 
-            // ── AIS140 ticket (tracking_id = shared ID) ────────────
+            // AIS140 ticket (unique ticket_no per vehicle)
             if (hasAIS140) {
                 const ais140Product = vehicle.products.find(p => p.name === 'AIS140');
                 await conn.execute(
@@ -136,7 +140,7 @@ const createOrder = async (req, res) => {
                      (ticket_no, vin, tracking_id, order_tracking_id, vehicle_details, customer_details, status)
                      VALUES (?,?,?,?,?,?,'pending')`,
                     [
-                        trackingId, vehicle.vin, trackingId, trackingId,
+                        ais140TicketNo, vehicle.vin, vehicleTrackingId, orderTrackingId,
                         JSON.stringify({
                             vin: vehicle.vin, engine_no: vehicle.engine_no,
                             reg_number: vehicle.registration_no, vehicle_model: vehicle.model,
@@ -150,7 +154,7 @@ const createOrder = async (req, res) => {
                 );
             }
 
-            // ── Mining ticket (tracking_id = shared ID) ────────────
+            // Mining ticket (unique ticket_no per vehicle)
             if (hasMINING) {
                 const miningProduct = vehicle.products.find(p => p.name === 'MINING');
                 await conn.execute(
@@ -158,7 +162,7 @@ const createOrder = async (req, res) => {
                      (mining_ticket_no, vin, tracking_id, order_tracking_id, vehicle_details, customer_details, status)
                      VALUES (?,?,?,?,?,?,'pending')`,
                     [
-                        trackingId, vehicle.vin, trackingId, trackingId,
+                        miningTicketNo, vehicle.vin, vehicleTrackingId, orderTrackingId,
                         JSON.stringify({
                             vin: vehicle.vin, engine_no: vehicle.engine_no,
                             reg_number: vehicle.registration_no, vehicle_model: vehicle.model,
@@ -171,31 +175,37 @@ const createOrder = async (req, res) => {
                 );
             }
 
-            // ── SPOC ───────────────────────────────────────────────
+            // SPOC (per vehicle tracking ID)
             if (vehicle.spoc?.name) {
                 await conn.execute(
                     `INSERT INTO spoc_details (tracking_id, name, contact_no, email) VALUES (?,?,?,?)`,
-                    [trackingId, vehicle.spoc.name, vehicle.spoc.contact_number || '', vehicle.spoc.email || '']
+                    [vehicleTrackingId, vehicle.spoc.name, vehicle.spoc.contact_number || '', vehicle.spoc.email || '']
                 );
             }
 
+            // Per-vehicle status history entry
+            await conn.execute(
+                `INSERT INTO order_status_history (order_id, vin, stage, to_status, changed_by, notes, metadata)
+                 VALUES (?, ?, 'ORDER_CREATED', 'pending', ?, 'Vehicle registered in order', ?)`,
+                [orderId, vehicle.vin, clientId, JSON.stringify({
+                    timestamp_ist:      createdAtIST,
+                    vehicle_tracking_id: vehicleTrackingId,
+                    ticket_no:          ticketNo,
+                    ais140_ticket_no:   ais140TicketNo,
+                    mining_ticket_no:   miningTicketNo,
+                })]
+            );
+
             tickets.push({
                 vin:               vehicle.vin,
-                order_tracking_id: trackingId,
-                ais140_ticket_no:  ais140TicketNo,   // same as order_tracking_id
-                mining_ticket_no:  miningTicketNo,   // same as order_tracking_id
+                order_tracking_id: orderTrackingId,     // order-level (same for all vehicles)
+                tracking_id:       vehicleTrackingId,   // vehicle-level (unique per vehicle) — use this for status lookup
+                ais140_ticket_no:  ais140TicketNo,
+                mining_ticket_no:  miningTicketNo,
             });
         }
 
-        // ── Audit log ─────────────────────────────────────────────
-        await conn.execute(
-            `INSERT INTO order_status_history (order_id, stage, to_status, changed_by, notes, metadata)
-             VALUES (?, 'ORDER_CREATED', 'pending', ?, 'Order created', ?)`,
-            [orderId, clientId, JSON.stringify({ event: 'order_created', timestamp: orderCreatedAt, total_vins: allVehicles.length })]
-        );
-
         await conn.commit();
-
         return res.status(200).json({ err: null, data: tickets });
 
     } catch (err) {

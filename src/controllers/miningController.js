@@ -1,5 +1,5 @@
 const pool    = require('../config/db');
-const { generateTrackingId, generateTicketId } = require('../utils/idGenerator');
+const { generateTrackingId, generateTicketId, toIST } = require('../utils/idGenerator');
 
 const validateMiningVehicle = (vd) => {
     const errors = [];
@@ -161,17 +161,13 @@ const getMiningTicketStatus = async (req, res) => {
 
             results.push({
                 vin:              t.vin,
-                ticket_no:        t.mining_ticket_no,   // spec uses ticket_no in response
+                ticket_no:        t.mining_ticket_no,
                 status:           mapStatus(t.status),
                 remark:           t.remark          || null,
                 handler:          t.handler          || null,
                 handler_contact:  t.handler_contact  || null,
-                process_datetime: t.process_datetime
-                    ? new Date(t.process_datetime).toISOString().replace('Z', '')
-                    : null,
-                polling_datetime: t.polling_datetime
-                    ? new Date(t.polling_datetime).toISOString().replace('Z', '')
-                    : null,
+                process_datetime: toIST(t.process_datetime),
+                polling_datetime: toIST(t.polling_datetime),
                 metadata,
             });
         }

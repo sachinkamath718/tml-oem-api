@@ -1,5 +1,5 @@
 const pool    = require('../config/db');
-const { generateTrackingId, generateTicketId } = require('../utils/idGenerator');
+const { generateTrackingId, generateTicketId, toIST } = require('../utils/idGenerator');
 
 const validateAIS140Vehicle = (vd) => {
     const errors = [];
@@ -184,14 +184,10 @@ const getAIS140TicketStatus = async (req, res) => {
                 remark:                             t.remark || null,
                 handler:                            t.handler || null,
                 handler_contact:                    t.handler_contact || null,
-                process_datetime:                   t.process_datetime
-                    ? new Date(t.process_datetime).toISOString().replace('Z', '')
-                    : null,
-                certification_registration_datetime: t.certification_registration_datetime
-                    ? new Date(t.certification_registration_datetime).toISOString().replace('Z', '')
-                    : null,
+                process_datetime:                   toIST(t.process_datetime),
+                certification_registration_datetime: toIST(t.certification_registration_datetime),
                 certification_expiry_date:          t.certification_expiry_date
-                    ? t.certification_expiry_date.toISOString().split('T')[0]
+                    ? toIST(t.certification_expiry_date).split('T')[0]
                     : null,
                 certificate_file_location:          t.certificate_file_location || t.certificate_file_path || null,
                 certificate_file_names:             certFileNames,
