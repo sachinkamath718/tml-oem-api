@@ -66,7 +66,7 @@ const getOrderStatus = async (req, res) => {
                     ais140_ticket_no, mining_ticket_no, created_at
              FROM order_vehicles
              WHERE order_id = ? ORDER BY created_at ASC`,
-            [order.id]
+            [order.order_id]  // order_id comes from ov.order_id alias in the JOIN query above
         );
 
         // ── Build status data for each vehicle ─────────────────────
