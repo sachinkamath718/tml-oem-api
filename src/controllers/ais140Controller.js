@@ -161,34 +161,35 @@ const getAIS140TicketStatus = async (req, res) => {
                 continue;
             }
 
-            const t = rows[0];
+            // Loop over ALL rows — each ticket gets its own result entry
+            for (const t of rows) {
+                const certFileNames = [];
+                if (t.certificate_file_name) certFileNames.push(t.certificate_file_name);
 
-            const certFileNames = [];
-            if (t.certificate_file_name) certFileNames.push(t.certificate_file_name);
+                let metadata = {};
+                if (t.handler_details) {
+                    metadata = typeof t.handler_details === 'string'
+                        ? JSON.parse(t.handler_details)
+                        : t.handler_details;
+                }
 
-            let metadata = {};
-            if (t.handler_details) {
-                metadata = typeof t.handler_details === 'string'
-                    ? JSON.parse(t.handler_details)
-                    : t.handler_details;
+                results.push({
+                    vin:                                 t.vin,
+                    ticket_no:                           t.ticket_no,
+                    status:                              mapStatus(t.status),
+                    remark:                              t.remark || null,
+                    handler:                             t.handler || null,
+                    handler_contact:                     t.handler_contact || null,
+                    process_datetime:                    toIST(t.process_datetime),
+                    certification_registration_datetime: toIST(t.certification_registration_datetime),
+                    certification_expiry_date:           t.certification_expiry_date
+                        ? toIST(t.certification_expiry_date).split('T')[0]
+                        : null,
+                    certificate_file_location:           t.certificate_file_location || t.certificate_file_path || null,
+                    certificate_file_names:              certFileNames,
+                    metadata,
+                });
             }
-
-            results.push({
-                vin:                                t.vin,
-                ticket_no:                          t.ticket_no,
-                status:                             mapStatus(t.status),
-                remark:                             t.remark || null,
-                handler:                            t.handler || null,
-                handler_contact:                    t.handler_contact || null,
-                process_datetime:                   toIST(t.process_datetime),
-                certification_registration_datetime: toIST(t.certification_registration_datetime),
-                certification_expiry_date:          t.certification_expiry_date
-                    ? toIST(t.certification_expiry_date).split('T')[0]
-                    : null,
-                certificate_file_location:          t.certificate_file_location || t.certificate_file_path || null,
-                certificate_file_names:             certFileNames,
-                metadata,
-            });
         }
 
         return res.status(200).json({ err: null, data: results });

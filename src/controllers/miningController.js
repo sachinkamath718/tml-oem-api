@@ -146,26 +146,27 @@ const getMiningTicketStatus = async (req, res) => {
                 continue;
             }
 
-            const t = rows[0];
+            // Loop over ALL rows — each ticket gets its own result entry
+            for (const t of rows) {
+                let metadata = {};
+                if (t.handler_details) {
+                    metadata = typeof t.handler_details === 'string'
+                        ? JSON.parse(t.handler_details)
+                        : t.handler_details;
+                }
 
-            let metadata = {};
-            if (t.handler_details) {
-                metadata = typeof t.handler_details === 'string'
-                    ? JSON.parse(t.handler_details)
-                    : t.handler_details;
+                results.push({
+                    vin:              t.vin,
+                    ticket_no:        t.mining_ticket_no,
+                    status:           mapStatus(t.status),
+                    remark:           t.remark         || null,
+                    handler:          t.handler         || null,
+                    handler_contact:  t.handler_contact || null,
+                    process_datetime: toIST(t.process_datetime),
+                    polling_datetime: toIST(t.polling_datetime),
+                    metadata,
+                });
             }
-
-            results.push({
-                vin:              t.vin,
-                ticket_no:        t.mining_ticket_no,
-                status:           mapStatus(t.status),
-                remark:           t.remark          || null,
-                handler:          t.handler          || null,
-                handler_contact:  t.handler_contact  || null,
-                process_datetime: toIST(t.process_datetime),
-                polling_datetime: toIST(t.polling_datetime),
-                metadata,
-            });
         }
 
         return res.status(200).json({ err: null, data: results });
