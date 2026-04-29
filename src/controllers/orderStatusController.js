@@ -76,19 +76,23 @@ const getOrderStatus = async (req, res) => {
             const vTid = v.vehicle_tracking_id; // vehicle-level, used to look up tickets
 
             // Fetch tickets for this vehicle
-            const [[ship]]  = await Promise.all([pool.execute(
+            const [shipRows] = await pool.execute(
                 `SELECT status, created_at, updated_at, courier, awb_number,
                         expected_delivery, dispatched_at
                  FROM shipment_tickets WHERE tracking_id = ? LIMIT 1`, [vTid]
-            )]);
-            const [[del]]   = await Promise.all([pool.execute(
+            );
+            const [delRows]  = await pool.execute(
                 `SELECT status, created_at, updated_at, delivered_to, delivery_date
                  FROM delivery_tickets WHERE tracking_id = ? LIMIT 1`, [vTid]
-            )]);
-            const [[inst]]  = await Promise.all([pool.execute(
+            );
+            const [instRows] = await pool.execute(
                 `SELECT status, created_at, updated_at, technician_name, scheduled_date
                  FROM installation_tickets WHERE tracking_id = ? LIMIT 1`, [vTid]
-            )]);
+            );
+
+            const ship = shipRows[0] || null;
+            const del  = delRows[0]  || null;
+            const inst = instRows[0] || null;
 
             const tracking_info = [
                 {
