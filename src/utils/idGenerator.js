@@ -2,15 +2,27 @@ const { v4: uuidv4 } = require('uuid');
 
 /** Returns current IST time as ISO string (UTC+5:30) */
 function nowIST() {
-    const d = new Date();
-    const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+    const utcMs = Date.now();
+    const ist   = new Date(utcMs + 5.5 * 60 * 60 * 1000);
     return ist.toISOString().replace('Z', '+05:30');
 }
 
-/** Converts any date to IST ISO string */
+/**
+ * Converts a MySQL TIMESTAMP/DATETIME value to IST ISO string.
+ * Handles both Date objects and MySQL datetime strings ('YYYY-MM-DD HH:MM:SS').
+ */
 function toIST(date) {
     if (!date) return null;
-    const ist = new Date(new Date(date).getTime() + 5.5 * 60 * 60 * 1000);
+    let utcMs;
+    if (date instanceof Date) {
+        utcMs = date.getTime();
+    } else {
+        // MySQL returns strings like '2026-04-29 11:48:37'
+        // Append 'Z' to force UTC interpretation
+        const isoStr = String(date).replace(' ', 'T').replace(/(\.\d+)?$/, 'Z');
+        utcMs = new Date(isoStr).getTime();
+    }
+    const ist = new Date(utcMs + 5.5 * 60 * 60 * 1000);
     return ist.toISOString().replace('Z', '+05:30');
 }
 
