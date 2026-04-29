@@ -199,10 +199,9 @@ const createOrder = async (req, res) => {
 
             tickets.push({
                 vin:               vehicle.vin,
-                order_tracking_id: orderTrackingId,     // order-level (same for all vehicles)
-                tracking_id:       vehicleTrackingId,   // vehicle-level (unique per vehicle) — use this for status lookup
-                ais140_ticket_no:  ais140TicketNo,
-                mining_ticket_no:  miningTicketNo,
+                order_tracking_id: vehicleTrackingId,  // unique per vehicle; same as ais140 & mining ticket no
+                ais140_ticket_no:  ais140TicketNo,      // same as order_tracking_id
+                mining_ticket_no:  miningTicketNo,      // same as order_tracking_id
             });
         }
 
