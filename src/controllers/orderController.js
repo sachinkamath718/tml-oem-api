@@ -86,13 +86,14 @@ const createOrder = async (req, res) => {
 
         // ── Per-vehicle processing ─────────────────────────────────
         for (const vehicle of allVehicles) {
-            // Every vehicle gets its OWN unique tracking ID and ticket numbers
+            // Every vehicle gets its OWN unique tracking ID
+            // tracking_id = ais140_ticket_no = mining_ticket_no (all same per vehicle)
             const vehicleTrackingId = generateTrackingId();               // unique per vehicle
             const ticketNo          = `TKT-${generateTicketId()}`;        // shipment/delivery/install
             const hasAIS140         = (vehicle.products || []).some(p => p.name === 'AIS140');
             const hasMINING         = (vehicle.products || []).some(p => p.name === 'MINING');
-            const ais140TicketNo    = hasAIS140 ? `AIS-TKT-${generateTicketId()}` : null;
-            const miningTicketNo    = hasMINING  ? `MIN-TKT-${generateTicketId()}` : null;
+            const ais140TicketNo    = hasAIS140 ? vehicleTrackingId : null;  // same as tracking_id
+            const miningTicketNo    = hasMINING  ? vehicleTrackingId : null; // same as tracking_id
 
             // order_vehicles
             await conn.execute(
