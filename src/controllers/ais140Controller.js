@@ -140,8 +140,9 @@ const getAIS140TicketStatus = async (req, res) => {
                     `SELECT * FROM ais140_tickets WHERE ticket_no = ? LIMIT 1`, [ticket_no]
                 );
             } else {
+                // Return ALL tickets for this VIN, newest first
                 [rows] = await pool.execute(
-                    `SELECT * FROM ais140_tickets WHERE vin = ? ORDER BY created_at DESC LIMIT 1`, [vin_no]
+                    `SELECT * FROM ais140_tickets WHERE vin = ? ORDER BY created_at DESC`, [vin_no]
                 );
             }
 

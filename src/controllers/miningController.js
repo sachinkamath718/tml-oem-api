@@ -130,8 +130,9 @@ const getMiningTicketStatus = async (req, res) => {
                     `SELECT * FROM mining_tickets WHERE mining_ticket_no = ? LIMIT 1`, [ticket_no]
                 );
             } else {
+                // Return ALL tickets for this VIN, newest first
                 [rows] = await pool.execute(
-                    `SELECT * FROM mining_tickets WHERE vin = ? ORDER BY created_at DESC LIMIT 1`, [vin_no]
+                    `SELECT * FROM mining_tickets WHERE vin = ? ORDER BY created_at DESC`, [vin_no]
                 );
             }
 
