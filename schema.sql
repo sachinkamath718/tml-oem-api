@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS order_vehicles (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id          BIGINT NOT NULL,
     vin               VARCHAR(100) NOT NULL UNIQUE,
-    ticket_id         VARCHAR(100) NOT NULL UNIQUE COMMENT 'Shared TKT-XXXX across all module tickets',
-    tracking_id       VARCHAR(100) NOT NULL,
+    ticket_id         VARCHAR(100) NOT NULL UNIQUE COMMENT 'TKT-XXXX for shipment/delivery/install',
+    tracking_id       VARCHAR(100) NOT NULL UNIQUE COMMENT 'Vehicle-level tracking ID = ais140_ticket_no = mining_ticket_no',
     dispatch_location VARCHAR(500) NULL,
     -- Vehicle details
     registration_no   VARCHAR(100) NULL,
@@ -72,8 +72,8 @@ CREATE TABLE IF NOT EXISTS order_vehicles (
     device_model      VARCHAR(100) NULL,
     -- Products & linked tickets
     products          JSON NULL COMMENT 'Array: AIS140, MINING, FLEET_TRACK, PANIC_BUTTON, IMMOBILIZER',
-    ais140_ticket_no  VARCHAR(100) NULL,
-    mining_ticket_no  VARCHAR(100) NULL,
+    ais140_ticket_no  VARCHAR(100) NULL UNIQUE,
+    mining_ticket_no  VARCHAR(100) NULL UNIQUE,
     status            ENUM('pending','in_progress','completed','on_hold','failed') DEFAULT 'pending',
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

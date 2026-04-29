@@ -212,4 +212,34 @@ SET @col = 'polling_datetime';
 SET @sql = IF(NOT EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND COLUMN_NAME=@col),'ALTER TABLE mining_tickets ADD COLUMN polling_datetime DATETIME NULL COMMENT ''Last polling timestamp'' AFTER process_datetime','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- ============================================================
+-- Add UNIQUE constraints to order_vehicles (safe, skips if exists)
+-- ============================================================
+SET @tbl = 'order_vehicles';
+
+SET @idx = 'uq_order_vehicles_tracking_id';
+SET @sql = IF(
+  NOT EXISTS(SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND INDEX_NAME=@idx),
+  'ALTER TABLE order_vehicles ADD UNIQUE INDEX uq_order_vehicles_tracking_id (tracking_id)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx = 'uq_order_vehicles_ais140_ticket_no';
+SET @sql = IF(
+  NOT EXISTS(SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND INDEX_NAME=@idx),
+  'ALTER TABLE order_vehicles ADD UNIQUE INDEX uq_order_vehicles_ais140_ticket_no (ais140_ticket_no)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx = 'uq_order_vehicles_mining_ticket_no';
+SET @sql = IF(
+  NOT EXISTS(SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@dbname AND TABLE_NAME=@tbl AND INDEX_NAME=@idx),
+  'ALTER TABLE order_vehicles ADD UNIQUE INDEX uq_order_vehicles_mining_ticket_no (mining_ticket_no)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SHOW TABLES;
+

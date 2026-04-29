@@ -22,12 +22,12 @@ function toISTMs(date) {
 
 function generateTrackingId() {
     const ts   = Date.now();
-    const rand = uuidv4().replace(/-/g, '').substring(0, 6).toUpperCase();
+    const rand = uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase(); // 8 chars = 32-bit randomness
     return `TRK-${ts}-${rand}`;
 }
 
 function generateTicketId() {
-    return uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
+    return uuidv4().replace(/-/g, '').substring(0, 10).toUpperCase(); // 10 chars for extra uniqueness
 }
 
 function generateOrderNumber() {
