@@ -8,11 +8,12 @@ const pool = mysql.createPool({
     password:           process.env.DB_PASSWORD || '',
     database:           process.env.DB_NAME     || 'railway',
     waitForConnections: true,
-    connectionLimit:    2,      // Keep low for serverless
+    connectionLimit:    2,
     queueLimit:         0,
-    connectTimeout:     30000,  // 30s timeout for cold starts
-    timezone:           '+00:00', // Always read/write timestamps as UTC — toIST() converts to IST for responses
-    ssl:                { rejectUnauthorized: false }, // Required for Railway
+    connectTimeout:     30000,
+    timezone:           '+00:00',    // DB stores/sends timestamps in UTC
+    dateStrings:        true,        // Return ALL dates as strings → toIST() handles conversion
+    ssl:                { rejectUnauthorized: false },
 });
 
 module.exports = pool;
