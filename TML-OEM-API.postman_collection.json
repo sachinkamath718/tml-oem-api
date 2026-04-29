@@ -140,7 +140,7 @@
       }
     },
     {
-      "name": "7. AIS140 Ticket Status — All by VIN",
+      "name": "7. AIS140 Ticket Status",
       "request": {
         "method": "POST",
         "header": [
@@ -154,29 +154,11 @@
           "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT458391RWE60021\", \"ticket_no\": null },\n    { \"vin_no\": \"MAT458391RWE60064\", \"ticket_no\": null }\n  ]\n}",
           "options": { "raw": { "language": "json" } }
         },
-        "description": "ticket_no: null → returns ALL tickets for that VIN (newest first).\nUseful to see all historical/renewal tickets for a vehicle."
+        "description": "ticket_no: null → returns ALL tickets for that VIN (newest first).\nTo get a specific ticket, replace null with the ticket number e.g. \"AIS-TKT-XXXXXXXXXX\"."
       }
     },
     {
-      "name": "8. AIS140 Ticket Status — Single by ticket_no",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type",  "value": "application/json" },
-          { "key": "Accept",        "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{token}}" }
-        ],
-        "url": "{{base_url}}/ais140/ticket-status",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT458391RWE60021\", \"ticket_no\": \"{{ais_ticket_no}}\" }\n  ]\n}",
-          "options": { "raw": { "language": "json" } }
-        },
-        "description": "ticket_no provided → returns ONLY that specific ticket's info.\n{{ais_ticket_no}} is auto-set when running request #5."
-      }
-    },
-    {
-      "name": "9. Mining Ticket Status — All by VIN",
+      "name": "8. Mining Ticket Status",
       "request": {
         "method": "POST",
         "header": [
@@ -190,25 +172,7 @@
           "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT458391RWE60021\", \"ticket_no\": null },\n    { \"vin_no\": \"MAT458391RWE60098\", \"ticket_no\": null }\n  ]\n}",
           "options": { "raw": { "language": "json" } }
         },
-        "description": "ticket_no: null → returns ALL mining tickets for that VIN (newest first)."
-      }
-    },
-    {
-      "name": "10. Mining Ticket Status — Single by ticket_no",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type",  "value": "application/json" },
-          { "key": "Accept",        "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{token}}" }
-        ],
-        "url": "{{base_url}}/mining/ticket-status",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT458391RWE60021\", \"ticket_no\": \"{{min_ticket_no}}\" }\n  ]\n}",
-          "options": { "raw": { "language": "json" } }
-        },
-        "description": "ticket_no provided → returns ONLY that specific mining ticket.\n{{min_ticket_no}} is auto-set when running request #6."
+        "description": "ticket_no: null → returns ALL mining tickets for that VIN (newest first).\nTo get a specific ticket, replace null with the ticket number e.g. \"MIN-TKT-XXXXXXXXXX\"."
       }
     }
   ]
