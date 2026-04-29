@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const { nowIST } = require('./utils/idGenerator');
 
 const authRoutes   = require('./routes/auth');
 const orderRoutes  = require('./routes/orders');
@@ -21,7 +22,7 @@ app.use('/mining', miningRoutes);
 
 // ─── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'TML OEM API', time: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'TML OEM API', time_utc: new Date().toISOString(), time_ist: nowIST() });
 });
 
 // ─── API info ─────────────────────────────────────────────────
