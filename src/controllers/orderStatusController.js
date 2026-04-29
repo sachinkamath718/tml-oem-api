@@ -8,14 +8,10 @@ const mapStatus = (s) => ({
     'failed':      'FAILED',
 })[s] || 'PENDING';
 
-/**
- * Converts a MySQL datetime string (UTC) to IST ISO string.
- * MySQL CONVERT_TZ handles this at DB level, so this is just a formatter.
- */
-const fmtIST = (s) => {
+/** Convert MySQL CONVERT_TZ IST string → Unix epoch milliseconds */
+const toEpoch = (s) => {
     if (!s) return null;
-    // s comes from SQL as already-IST string via CONVERT_TZ, just add offset suffix
-    return String(s).replace(' ', 'T') + '+05:30';
+    return new Date(String(s).replace(' ', 'T') + '+05:30').getTime();
 };
 
 /**
@@ -97,7 +93,7 @@ const getOrderStatus = async (req, res) => {
                 {
                     stage:      'ORDER_CREATED',
                     status:     'COMPLETED',
-                    updated_at: fmtIST(order.created_at_ist),
+                    updated_at: toEpoch(order.created_at_ist),
                     metadata: {
                         order_id:          order.tml_order_id || order.order_number,
                         order_tracking_id: order.order_tracking_id,
@@ -107,18 +103,18 @@ const getOrderStatus = async (req, res) => {
                 {
                     stage:      'TCU_SHIPPED',
                     status:     ship ? mapStatus(ship.status) : 'PENDING',
-                    updated_at: ship ? fmtIST(ship.updated_at_ist) : null,
+                    updated_at: ship ? toEpoch(ship.updated_at_ist) : null,
                     metadata:   ship ? {
                         courier:           ship.courier || null,
                         tracking_number:   ship.awb_number || null,
                         expected_delivery: ship.expected_delivery_ist || null,
-                        dispatched_at:     fmtIST(ship.dispatched_at_ist),
+                        dispatched_at:     toEpoch(ship.dispatched_at_ist),
                     } : {},
                 },
                 {
                     stage:      'TCU_DELIVERED',
                     status:     del ? mapStatus(del.status) : 'PENDING',
-                    updated_at: del ? fmtIST(del.updated_at_ist) : null,
+                    updated_at: del ? toEpoch(del.updated_at_ist) : null,
                     metadata:   del ? {
                         delivered_to:  del.delivered_to || null,
                         delivery_date: del.delivery_date_ist || null,
@@ -127,7 +123,7 @@ const getOrderStatus = async (req, res) => {
                 {
                     stage:      'DEVICE_INSTALLED',
                     status:     inst ? mapStatus(inst.status) : 'PENDING',
-                    updated_at: inst ? fmtIST(inst.updated_at_ist) : null,
+                    updated_at: inst ? toEpoch(inst.updated_at_ist) : null,
                     metadata:   inst ? {
                         technician_name: inst.technician_name || null,
                         scheduled_date:  inst.scheduled_date_ist || null,

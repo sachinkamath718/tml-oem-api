@@ -61,12 +61,7 @@ const createAIS140Request = async (req, res) => {
             if (existing.length) {
                 trackingId      = existing[0].tracking_id;
                 orderTrackingId = existing[0].tracking_id;
-
-                if (existing[0].ais140_ticket_no) {
-                    results.push({ vin, ticket_no: existing[0].ais140_ticket_no, validation_errors: null });
-                    hasSuccesses = true;
-                    continue;
-                }
+                // Do NOT return old ticket — always create a fresh one for renewals
             }
 
             const ticketNo = `AIS-TKT-${generateTicketId()}`;
