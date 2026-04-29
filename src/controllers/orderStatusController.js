@@ -1,5 +1,4 @@
 const pool = require('../config/db');
-const { toIST } = require('../utils/idGenerator');
 
 const mapStatus = (s) => ({
     'pending':     'PENDING',
@@ -10,25 +9,18 @@ const mapStatus = (s) => ({
 })[s] || 'PENDING';
 
 /**
- * GET /order/status?trackingId={orderTrackingId}
- *
- * trackingId = order_tracking_id returned by POST /orders/create
- * Returns status for ALL vehicles in that order.
- *
- * Response:
- * {
- *   "err": null,
- *   "data": [
- *     {
- *       "vin": "VIN1",
- *       "order_tracking_id": "TRK-...",
- *       "ais140_ticket_no": "TRK-...",
- *       "mining_ticket_no": "TRK-...",
- *       "tracking_info": [...]
- *     },
- *     ...
- *   ]
- * }
+ * Converts a MySQL datetime string (UTC) to IST ISO string.
+ * MySQL CONVERT_TZ handles this at DB level, so this is just a formatter.
+ */
+const fmtIST = (s) => {
+    if (!s) return null;
+    // s comes from SQL as already-IST string via CONVERT_TZ, just add offset suffix
+    return String(s).replace(' ', 'T') + '+05:30';
+};
+
+/**
+ * GET /order/status?trackingId={vehicleTrackingId}
+ * Returns status for ALL vehicles in the order.
  */
 const getOrderStatus = async (req, res) => {
     try {
@@ -41,10 +33,12 @@ const getOrderStatus = async (req, res) => {
             });
         }
 
-        // ── Find the order via any vehicle's tracking_id ───────────
+        // Find the order via vehicle tracking_id, convert timestamps to IST in SQL
         const [vehicleLookup] = await pool.execute(
-            `SELECT ov.order_id, o.tracking_id AS order_tracking_id,
-                    o.tml_order_id, o.order_number, o.created_by, o.created_at
+            `SELECT ov.order_id,
+                    o.tracking_id AS order_tracking_id,
+                    o.tml_order_id, o.order_number, o.created_by,
+                    DATE_FORMAT(CONVERT_TZ(o.created_at, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS created_at_ist
              FROM order_vehicles ov
              JOIN orders o ON ov.order_id = o.id
              WHERE ov.tracking_id = ? LIMIT 1`,
@@ -60,33 +54,38 @@ const getOrderStatus = async (req, res) => {
 
         const order = vehicleLookup[0];
 
-        // ── Fetch ALL vehicles for this order ──────────────────────
+        // Fetch ALL vehicles for this order
         const [vehicles] = await pool.execute(
             `SELECT vin, tracking_id AS vehicle_tracking_id,
-                    ais140_ticket_no, mining_ticket_no, created_at
+                    ais140_ticket_no, mining_ticket_no
              FROM order_vehicles
              WHERE order_id = ? ORDER BY created_at ASC`,
-            [order.order_id]  // order_id comes from ov.order_id alias in the JOIN query above
+            [order.order_id]
         );
 
-        // ── Build status data for each vehicle ─────────────────────
         const data = [];
 
         for (const v of vehicles) {
-            const vTid = v.vehicle_tracking_id; // vehicle-level, used to look up tickets
+            const vTid = v.vehicle_tracking_id;
 
-            // Fetch tickets for this vehicle
+            // Fetch tickets — convert timestamps to IST in SQL
             const [shipRows] = await pool.execute(
-                `SELECT status, created_at, updated_at, courier, awb_number,
-                        expected_delivery, dispatched_at
+                `SELECT status, courier, awb_number,
+                        DATE_FORMAT(CONVERT_TZ(updated_at, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS updated_at_ist,
+                        DATE_FORMAT(CONVERT_TZ(expected_delivery, '+00:00', '+05:30'), '%Y-%m-%d') AS expected_delivery_ist,
+                        DATE_FORMAT(CONVERT_TZ(dispatched_at, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS dispatched_at_ist
                  FROM shipment_tickets WHERE tracking_id = ? LIMIT 1`, [vTid]
             );
-            const [delRows]  = await pool.execute(
-                `SELECT status, created_at, updated_at, delivered_to, delivery_date
+            const [delRows] = await pool.execute(
+                `SELECT status, delivered_to,
+                        DATE_FORMAT(CONVERT_TZ(updated_at, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS updated_at_ist,
+                        DATE_FORMAT(CONVERT_TZ(delivery_date, '+00:00', '+05:30'), '%Y-%m-%d') AS delivery_date_ist
                  FROM delivery_tickets WHERE tracking_id = ? LIMIT 1`, [vTid]
             );
             const [instRows] = await pool.execute(
-                `SELECT status, created_at, updated_at, technician_name, scheduled_date
+                `SELECT status, technician_name,
+                        DATE_FORMAT(CONVERT_TZ(updated_at, '+00:00', '+05:30'), '%Y-%m-%d %H:%i:%s') AS updated_at_ist,
+                        DATE_FORMAT(CONVERT_TZ(scheduled_date, '+00:00', '+05:30'), '%Y-%m-%d') AS scheduled_date_ist
                  FROM installation_tickets WHERE tracking_id = ? LIMIT 1`, [vTid]
             );
 
@@ -98,7 +97,7 @@ const getOrderStatus = async (req, res) => {
                 {
                     stage:      'ORDER_CREATED',
                     status:     'COMPLETED',
-                    updated_at: toIST(order.created_at),
+                    updated_at: fmtIST(order.created_at_ist),
                     metadata: {
                         order_id:          order.tml_order_id || order.order_number,
                         order_tracking_id: order.order_tracking_id,
@@ -108,37 +107,37 @@ const getOrderStatus = async (req, res) => {
                 {
                     stage:      'TCU_SHIPPED',
                     status:     ship ? mapStatus(ship.status) : 'PENDING',
-                    updated_at: ship ? toIST(ship.updated_at || ship.created_at) : null,
+                    updated_at: ship ? fmtIST(ship.updated_at_ist) : null,
                     metadata:   ship ? {
                         courier:           ship.courier || null,
                         tracking_number:   ship.awb_number || null,
-                        expected_delivery: ship.expected_delivery ? toIST(ship.expected_delivery).split('T')[0] : null,
-                        dispatched_at:     toIST(ship.dispatched_at),
+                        expected_delivery: ship.expected_delivery_ist || null,
+                        dispatched_at:     fmtIST(ship.dispatched_at_ist),
                     } : {},
                 },
                 {
                     stage:      'TCU_DELIVERED',
                     status:     del ? mapStatus(del.status) : 'PENDING',
-                    updated_at: del ? toIST(del.updated_at || del.created_at) : null,
+                    updated_at: del ? fmtIST(del.updated_at_ist) : null,
                     metadata:   del ? {
                         delivered_to:  del.delivered_to || null,
-                        delivery_date: del.delivery_date ? toIST(del.delivery_date).split('T')[0] : null,
+                        delivery_date: del.delivery_date_ist || null,
                     } : {},
                 },
                 {
                     stage:      'DEVICE_INSTALLED',
                     status:     inst ? mapStatus(inst.status) : 'PENDING',
-                    updated_at: inst ? toIST(inst.updated_at || inst.created_at) : null,
+                    updated_at: inst ? fmtIST(inst.updated_at_ist) : null,
                     metadata:   inst ? {
                         technician_name: inst.technician_name || null,
-                        scheduled_date:  inst.scheduled_date ? toIST(inst.scheduled_date).split('T')[0] : null,
+                        scheduled_date:  inst.scheduled_date_ist || null,
                     } : {},
                 },
             ];
 
             data.push({
                 vin:               v.vin,
-                order_tracking_id: v.ais140_ticket_no || vTid, // same as ais/mining ticket
+                order_tracking_id: v.ais140_ticket_no || vTid,
                 ais140_ticket_no:  v.ais140_ticket_no,
                 mining_ticket_no:  v.mining_ticket_no,
                 tracking_info,
