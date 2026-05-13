@@ -1,13 +1,27 @@
 {
   "info": {
     "_postman_id": "fe1938dc-c20c-458f-81d2-20da73de4955",
-    "name": "FleetEdge - Aftermarket APIs for iTriangle",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "20346729"
+    "name": "TML Aftermarket APIs — v3.0.0",
+    "description": "TML APIs consumed by the Vendor (iTriangle/FleetEdge)\n\nInstallation Workflow:\n  1. Generate Token\n  2. Device Fitment Webhook — TCU_SHIPPED\n  3. Device Fitment Webhook — TCU_DELIVERED\n  4. Device Fitment Webhook — DEVICE_INSTALLED (triggers IMEI update)\n  5. Get Device Status (1 vehicle / multiple vehicles)\n\nAIS140 Workflow:\n  1. Get SIM Expiry → Check before moving to IN_PROGRESS\n  2. SIM Extension Request → if expired\n  3. Get SIM Expiry → verify extension\n  4. AIS140 Request Update Webhook → IN_PROGRESS\n  5. Upload AIS140 Certificates\n  6. AIS140 Request Update Webhook → COMPLETED\n\nMining Workflow:\n  1. Get SIM Expiry → Check before moving to IN_PROGRESS\n  2. SIM Extension Request → if expired\n  3. Mining Request Update Webhook → COMPLETED",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base-url",       "value": "https://tml-oem-api.vercel.app",  "description": "TML API base URL" },
+    { "key": "access-token",   "value": "",                                  "description": "Auto-set by Generate Token" },
+    { "key": "vin-1",          "value": "MAT800313N8H16571" },
+    { "key": "vin-2",          "value": "MAT800313N8H16572" },
+    { "key": "vin-3",          "value": "MAT800313N8H16573" },
+    { "key": "tracking-id-1",  "value": "TRK-1778594367038-6435A639" },
+    { "key": "tracking-id-2",  "value": "TRK-1778595514787-5D91DE01" },
+    { "key": "tracking-id-3",  "value": "TRK-1778596418166-90CD9AB7" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access-token}}", "type": "string" }]
   },
   "item": [
     {
-      "name": "Auth",
+      "name": "🔑 Auth",
       "item": [
         {
           "name": "1. Generate Token",
@@ -15,223 +29,273 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
-                  "const response = pm.response.json();",
-                  "const accessToken = response.access_token;",
-                  "pm.collectionVariables.set(\"access-token\", accessToken);"
-                ],
-                "type": "text/javascript"
+                  "var r = pm.response.json();",
+                  "var tok = r.access_token || (r.data && r.data.access_token);",
+                  "if (tok) { pm.collectionVariables.set('access-token', tok); console.log('Token saved'); }"
+                ]
               }
             }
           ],
           "request": {
             "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
-                { "type": "text", "key": "client_id",     "value": "{{client-id}}" },
-                { "type": "text", "key": "client_secret", "value": "{{client-secret}}" },
-                { "type": "text", "key": "grant_type",    "value": "client_credentials" }
+                { "key": "client_id",     "value": "tml-client-id" },
+                { "key": "client_secret", "value": "tml-client-secret" },
+                { "key": "grant_type",    "value": "client_credentials" }
               ]
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/auth/realms/cvp/protocol/openid-connect/token",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["auth","realms","cvp","protocol","openid-connect","token"]
-            }
+            "url": "{{base-url}}/auth/token",
+            "description": "Authenticates and gets a Bearer token (valid 12 hrs). Token auto-saved to {{access-token}}."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "Installation Workflow",
+      "name": "🔧 Installation Workflow",
+      "description": "TML Creates Order → Vendor creates ticket → PENDING → Assign Technician → IN_PROGRESS → DEVICE_INSTALLED webhook → Check Device Status → COMPLETED",
       "item": [
         {
-          "name": "ORDER_CREATED — VIN MAT800313N8H16571",
+          "name": "2a. Device Fitment Webhook — TCU_SHIPPED (VIN-1)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"trackingId\" : \"TRK-1778594367038-6435A639\",\n    \"vin\" : \"MAT800313N8H16571\",\n    \"stage\" : \"ORDER_CREATED\",\n    \"updatedAt\" : \"2026-05-12T19:11:11\",\n    \"metadata\":  {}\n}",
+              "raw": "{\n    \"trackingId\": \"{{tracking-id-1}}\",\n    \"vin\": \"{{vin-1}}\",\n    \"stage\": \"TCU_SHIPPED\",\n    \"updatedAt\": \"2026-05-13T09:00:00Z\",\n    \"meta\": {\n        \"iccId\": \"89914504200014599001\",\n        \"courier\": \"BlueDart\",\n        \"courierTrackingNumber\": \"BD-1234567890\",\n        \"expectedDelivery\": \"2026-05-16\",\n        \"remarks\": \"Device dispatched from warehouse\"\n    }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["webhooks","device-fitment"]
-            },
-            "description": "Fires when TML creates a new order. Creates Installation + AIS140 + Mining tickets in PENDING status in the Kanban board."
+            "url": "{{base-url}}/webhooks/device-fitment",
+            "description": "Notify TML that device has been shipped. Updates shipment ticket to IN_PROGRESS."
           },
           "response": []
         },
         {
-          "name": "ORDER_CREATED — VIN MAT800313N8H16572",
+          "name": "2b. Device Fitment Webhook — TCU_DELIVERED (VIN-1)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"trackingId\" : \"TRK-1778595514787-5D91DE01\",\n    \"vin\" : \"MAT800313N8H16572\",\n    \"stage\" : \"ORDER_CREATED\",\n    \"updatedAt\" : \"2026-05-12T19:11:11\",\n    \"metadata\":  {}\n}",
+              "raw": "{\n    \"trackingId\": \"{{tracking-id-1}}\",\n    \"vin\": \"{{vin-1}}\",\n    \"stage\": \"TCU_DELIVERED\",\n    \"updatedAt\": \"2026-05-16T14:00:00Z\",\n    \"meta\": {\n        \"iccId\": \"89914504200014599001\",\n        \"remarks\": \"Device delivered to customer\"\n    }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["webhooks","device-fitment"]
-            }
+            "url": "{{base-url}}/webhooks/device-fitment",
+            "description": "Notify TML that device has been delivered. Updates delivery ticket to COMPLETED."
           },
           "response": []
         },
         {
-          "name": "ORDER_CREATED — VIN MAT800313N8H16573",
+          "name": "2c. Device Fitment Webhook — DEVICE_INSTALLED (VIN-1)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"trackingId\" : \"TRK-1778596418166-90CD9AB7\",\n    \"vin\" : \"MAT800313N8H16573\",\n    \"stage\" : \"ORDER_CREATED\",\n    \"updatedAt\" : \"2026-05-12T19:11:11\",\n    \"metadata\":  {}\n}",
+              "raw": "{\n    \"trackingId\": \"{{tracking-id-1}}\",\n    \"vin\": \"{{vin-1}}\",\n    \"stage\": \"DEVICE_INSTALLED\",\n    \"updatedAt\": \"2026-05-17T11:00:00Z\",\n    \"meta\": {\n        \"technicianName\": \"Rajesh Kumar\",\n        \"installationDate\": \"2026-05-17\",\n        \"deviceSerial\": \"DEV987654321\",\n        \"kycMobileNo\": \"9876543210\",\n        \"kycCustomerType\": \"I\",\n        \"remarks\": \"Installation completed successfully\"\n    }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["webhooks","device-fitment"]
-            }
+            "url": "{{base-url}}/webhooks/device-fitment",
+            "description": "🔑 KEY STEP: Notify TML that device is installed. Triggers IMEI update and marks installation ticket COMPLETED. Run Get Device Status next to verify communication."
           },
           "response": []
         },
         {
-          "name": "DEVICE_INSTALLED — VIN MAT800313N8H16571",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"trackingId\" : \"TRK-1778594367038-6435A639\",\n    \"vin\" : \"MAT800313N8H16571\",\n    \"stage\" : \"DEVICE_INSTALLED\",\n    \"updatedAt\" : \"2026-05-13T11:11:11Z\",\n    \"metadata\":  {\n        \"iccId\": \"ABC1234\"\n    }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["webhooks","device-fitment"]
-            },
-            "description": "Fires after device is physically installed. Marks installation ticket as COMPLETED and saves iccId."
-          },
-          "response": []
-        },
-        {
-          "name": "9. Get Device Status",
+          "name": "9. Get Device Status — 1 Vehicle (VIN-1)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access-token}}" }],
+            "header": [],
             "url": {
-              "raw": "{{cvp-base-url}}/device-status?vehicle-id=MAT800313N8H16571",
-              "host": ["{{cvp-base-url}}"],
+              "raw": "{{base-url}}/device-status?vehicle-id={{vin-1}}",
+              "host": ["{{base-url}}"],
               "path": ["device-status"],
-              "query": [{ "key": "vehicle-id", "value": "MAT800313N8H16571" }]
+              "query": [{ "key": "vehicle-id", "value": "{{vin-1}}" }]
             },
-            "description": "Check if device is communicating (Telemetry + CAN). Run after DEVICE_INSTALLED before moving to COMPLETED."
+            "description": "Check if device is communicating (Telemetry + CAN). Run after DEVICE_INSTALLED. If receivedMessages contains both CAN_DATA and TELEMETRY_DATA → move to COMPLETED."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Get Device Status — Multiple Vehicles",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vins\": [\n        \"{{vin-1}}\",\n        \"{{vin-2}}\",\n        \"{{vin-3}}\"\n    ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base-url}}/vehicle/device-status",
+            "description": "Get device communication status for multiple vehicles. Returns telemetry + CAN last message timestamps and odometer readings."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "AIS140 Workflow",
+      "name": "📡 AIS140 Workflow",
+      "description": "PENDING → Check SIM Expiry → (extend if expired) → IN_PROGRESS webhook → Generate Cert → Upload Cert → COMPLETED webhook",
       "item": [
         {
-          "name": "4. AIS140 Request Update Webhook",
+          "name": "6. Get SIM Expiry — Check Before IN_PROGRESS",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type",  "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access-token}}" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"vin\": \"MAT800313N8H16571\",\n    \"ticketNo\": \"AIS-TRK-1778594367038-6435A639\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Certification completed successfully\",\n    \"handler\": \"Ramesh Kumar\",\n    \"handlerContact\": \"9876543210\",\n    \"processEndDateTime\": \"2026-05-13T14:30:00\",\n    \"certificationRegistrationDate\": \"2026-05-13\",\n    \"certificationExpiryDate\": \"2028-05-13\",\n    \"certificateFileLocation\": \"s3://tml-ais140-certificates/2026/05/\",\n    \"certificateFileNames\": [\n      \"MAT800313N8H16571_AIS140_Certificate_2026.pdf\"\n    ],\n    \"metadata\": {\n      \"vendorRef\": \"REF-123\",\n      \"priority\": \"high\"\n    }\n}",
+              "raw": "{\n    \"iccIds\": [\n        \"89914504200014599001\",\n        \"89914504200014599002\",\n        \"89914504200014599003\"\n    ]\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/webhooks/v2/ais140-requests",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["webhooks","v2","ais140-requests"]
+            "url": "{{base-url}}/sim/expiry",
+            "description": "⚠️ MANDATORY: Check SIM expiry before moving ticket to IN_PROGRESS. If simExpiryDate < today → run SIM Extension Request first."
+          },
+          "response": []
+        },
+        {
+          "name": "3. SIM Extension Request — If Expired",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"iccId\": \"89914504200014599001\",\n    \"expiryDate\": \"2027-12-31\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "description": "Called by iTriangle when AIS140 certification is done. Moves AIS140 ticket to COMPLETED and stores certificate details."
+            "url": "{{base-url}}/sim/expiry",
+            "description": "Extend the SIM data plan. API calculates months between current expiry and requested date and extends accordingly. Run only if SIM is expired. After this, call Get SIM Expiry again to confirm."
+          },
+          "response": []
+        },
+        {
+          "name": "4a. AIS140 Request Update Webhook — IN_PROGRESS",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vin\": \"{{vin-1}}\",\n    \"ticketNo\": \"AIS-{{tracking-id-1}}\",\n    \"status\": \"IN_PROGRESS\",\n    \"remark\": \"AIS140 certification in progress — documents under review\",\n    \"handler\": \"Suresh Reddy\",\n    \"handlerContact\": \"9988776655\",\n    \"metadata\": {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base-url}}/webhooks/v2/ais140-requests",
+            "description": "Call when ticket moves to IN_PROGRESS. Status options: PENDING | IN_PROGRESS | ON_HOLD | CANCELLED | CANCELLED_DUE_TO_CHANGE_REQUEST | COMPLETED"
           },
           "response": []
         },
         {
           "name": "8. Upload AIS140 Certificates",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{access-token}}", "type": "string" }]
-            },
             "method": "POST",
             "header": [],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "type": "text", "key": "prefix", "value": "ais140-certificates" },
-                { "type": "file", "key": "files",  "src": "" }
+                {
+                  "key": "prefix",
+                  "value": "2026-05-17/{{vin-1}}",
+                  "type": "text",
+                  "description": "S3 prefix — no bucket name, just the folder path"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "",
+                  "description": "Certificate PDF (max 2MB, up to 5 files)"
+                }
               ]
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/object-store/upload",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["object-store","upload"]
+            "url": "{{base-url}}/object-store/upload",
+            "description": "Upload AIS140 certificate PDF to TML's S3. Run BEFORE the COMPLETED webhook. Use the returned prefix in certificateFileLocation field of the COMPLETED webhook."
+          },
+          "response": []
+        },
+        {
+          "name": "4b. AIS140 Request Update Webhook — COMPLETED",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vin\": \"{{vin-1}}\",\n    \"ticketNo\": \"AIS-{{tracking-id-1}}\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Certification completed successfully\",\n    \"handler\": \"Ramesh Kumar\",\n    \"handlerContact\": \"9876543210\",\n    \"processEndDateTime\": \"2026-05-17T14:30:00\",\n    \"certificationRegistrationDateTime\": \"2026-05-17T10:00:00\",\n    \"certificationExpiryDate\": \"2028-05-17\",\n    \"certificateFileLocation\": \"s3://tml-ais140-certificates/2026-05-17/{{vin-1}}/\",\n    \"certificateFileNames\": [\n        \"{{vin-1}}_AIS140_Certificate_2026.pdf\"\n    ],\n    \"metadata\": {\n        \"vendorRef\": \"REF-2026-001\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "description": "Upload certificate PDF file. Run BEFORE the AIS140 Request Update Webhook. Use returned file path in certificateFileLocation."
+            "url": "{{base-url}}/webhooks/v2/ais140-requests",
+            "description": "🔑 FINAL STEP: Mark AIS140 ticket COMPLETED. Upload certificates first (API #8), then use the returned path in certificateFileLocation."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "Mining Workflow",
+      "name": "⛏️ Mining Workflow",
+      "description": "PENDING → Check SIM Expiry → (extend if expired) → IN_PROGRESS → COMPLETED webhook",
       "item": [
         {
-          "name": "5. Mining Request Update Webhook",
+          "name": "6. Get SIM Expiry — Check Before IN_PROGRESS",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type",  "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access-token}}" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"vin\": \"MAT800313N8H16572\",\n    \"department\": \"MINING_OPERATIONS\",\n    \"ticketNo\": \"MIN-TRK-1778595514787-5D91DE01\",\n    \"status\": \"APPROVED\",\n    \"remark\": \"Mining permit approved. All safety checks completed.\",\n    \"handler\": \"John Doe\",\n    \"handlerContact\": \"+91-9876543210\",\n    \"expiryDate\": \"2027-05-04\",\n    \"metadata\": {\n      \"permitType\": \"OPEN_CAST\",\n      \"mineLocation\": \"Jharkhand\",\n      \"operatorLicense\": \"MOP-2026-5678\",\n      \"safetyInspectionDate\": \"2026-04-15\",\n      \"approvedBy\": \"Regional Mining Officer\",\n      \"zoneCode\": \"EAST-01\"\n    }\n  }",
+              "raw": "{\n    \"iccIds\": [\n        \"89914504200014599001\",\n        \"89914504200014599002\"\n    ]\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{cvp-base-url}}/webhooks/mining-requests",
-              "host": ["{{cvp-base-url}}"],
-              "path": ["webhooks","mining-requests"]
+            "url": "{{base-url}}/sim/expiry",
+            "description": "⚠️ MANDATORY: Check SIM expiry before moving ticket to IN_PROGRESS."
+          },
+          "response": []
+        },
+        {
+          "name": "3. SIM Extension Request — If Expired",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"iccId\": \"89914504200014599001\",\n    \"expiryDate\": \"2027-12-31\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "description": "Called by iTriangle when mining permit is approved. Moves Mining ticket to COMPLETED."
+            "url": "{{base-url}}/sim/expiry",
+            "description": "Extend SIM data plan if expired. Check again with Get SIM Expiry to confirm extension."
+          },
+          "response": []
+        },
+        {
+          "name": "5a. Mining Request Update Webhook — IN_PROGRESS",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vin\": \"{{vin-2}}\",\n    \"ticketNo\": \"MIN-{{tracking-id-2}}\",\n    \"status\": \"IN_PROGRESS\",\n    \"remark\": \"Mining permit application in progress\",\n    \"handler\": \"Suresh Reddy\",\n    \"handlerContact\": \"9988776655\",\n    \"metadata\": {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base-url}}/webhooks/mining-requests",
+            "description": "Call when mining ticket moves to IN_PROGRESS. Status options: PENDING | IN_PROGRESS | ON_HOLD | COMPLETED"
+          },
+          "response": []
+        },
+        {
+          "name": "5b. Mining Request Update Webhook — COMPLETED",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vin\": \"{{vin-2}}\",\n    \"ticketNo\": \"MIN-{{tracking-id-2}}\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Mining permit approved. All safety checks completed.\",\n    \"handler\": \"John Doe\",\n    \"handlerContact\": \"+91-9876543210\",\n    \"expiryDate\": \"2027-05-17\",\n    \"department\": \"MINING_OPERATIONS\",\n    \"metadata\": {\n        \"permitType\": \"OPEN_CAST\",\n        \"mineLocation\": \"Jharkhand\",\n        \"operatorLicense\": \"MOP-2026-5678\",\n        \"safetyInspectionDate\": \"2026-05-15\",\n        \"approvedBy\": \"Regional Mining Officer\",\n        \"zoneCode\": \"EAST-01\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base-url}}/webhooks/mining-requests",
+            "description": "🔑 FINAL STEP: Mark Mining ticket COMPLETED. Include expiryDate and department."
           },
           "response": []
         }
       ]
     }
-  ],
-  "auth": {
-    "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{access-token}}", "type": "string" }]
-  },
-  "event": [
-    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
-    { "listen": "test",       "script": { "type": "text/javascript", "exec": [""] } }
-  ],
-  "variable": [
-    { "key": "cvp-base-url",  "value": "https://cvp-qa.api.tatamotors" },
-    { "key": "client-id",     "value": "itriangle" },
-    { "key": "client-secret", "value": "6p0ifiTHAQTLIKRLwofKbryAcWfU3Htw" },
-    { "key": "access-token",  "value": "" }
   ]
 }
