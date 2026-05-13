@@ -82,7 +82,7 @@ async function handleOrderCreated({ trackingId, vin, updatedAt }, res) {
             const [orderResult] = await conn.execute(
                 `INSERT INTO orders
                    (order_number, tml_order_id, tracking_id, client_ref_id, created_by, status)
-                 VALUES (?, ?, ?, ?, 'itriangle-webhook', 'pending')
+                 VALUES (?, ?, ?, ?, 'SYSTEM', 'pending')
                  ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`,
                 [orderNo, orderNo, trackingId, clientRefId]
             );
