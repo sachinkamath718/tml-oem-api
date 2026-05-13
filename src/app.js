@@ -2,10 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const { nowIST } = require('./utils/idGenerator');
 
-const authRoutes   = require('./routes/auth');
-const orderRoutes  = require('./routes/orders');
-const ais140Routes = require('./routes/ais140');
-const miningRoutes = require('./routes/mining');
+const authRoutes    = require('./routes/auth');
+const orderRoutes   = require('./routes/orders');
+const ais140Routes  = require('./routes/ais140');
+const miningRoutes  = require('./routes/mining');
+const webhookRoutes = require('./routes/webhook');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -15,10 +16,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Routes ──────────────────────────────────────────────────
-app.use('/auth',   authRoutes);
-app.use('/order',  orderRoutes);
-app.use('/ais140', ais140Routes);
-app.use('/mining', miningRoutes);
+app.use('/auth',     authRoutes);
+app.use('/order',    orderRoutes);
+app.use('/ais140',   ais140Routes);
+app.use('/mining',   miningRoutes);
+app.use('/webhooks', webhookRoutes);   // iTriangle / FleetEdge inbound webhooks
 
 // ─── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {

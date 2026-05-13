@@ -7,292 +7,231 @@
   },
   "item": [
     {
-      "name": "1. Generate Token",
-      "event": [
+      "name": "Auth",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "const response = pm.response.json();",
-              "const accessToken = response.access_token;",
-              "pm.collectionVariables.set(\"access-token\", accessToken);"
+          "name": "1. Generate Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "const accessToken = response.access_token;",
+                  "pm.collectionVariables.set(\"access-token\", accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "type": "text", "key": "client_id",     "value": "{{client-id}}" },
+                { "type": "text", "key": "client_secret", "value": "{{client-secret}}" },
+                { "type": "text", "key": "grant_type",    "value": "client_credentials" }
+              ]
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/auth/realms/cvp/protocol/openid-connect/token",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["auth","realms","cvp","protocol","openid-connect","token"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Installation Workflow",
+      "item": [
+        {
+          "name": "ORDER_CREATED — VIN MAT800313N8H16571",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"trackingId\" : \"TRK-1778594367038-6435A639\",\n    \"vin\" : \"MAT800313N8H16571\",\n    \"stage\" : \"ORDER_CREATED\",\n    \"updatedAt\" : \"2026-05-12T19:11:11\",\n    \"metadata\":  {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["webhooks","device-fitment"]
+            },
+            "description": "Fires when TML creates a new order. Creates Installation + AIS140 + Mining tickets in PENDING status in the Kanban board."
+          },
+          "response": []
+        },
+        {
+          "name": "ORDER_CREATED — VIN MAT800313N8H16572",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"trackingId\" : \"TRK-1778595514787-5D91DE01\",\n    \"vin\" : \"MAT800313N8H16572\",\n    \"stage\" : \"ORDER_CREATED\",\n    \"updatedAt\" : \"2026-05-12T19:11:11\",\n    \"metadata\":  {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["webhooks","device-fitment"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ORDER_CREATED — VIN MAT800313N8H16573",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"trackingId\" : \"TRK-1778596418166-90CD9AB7\",\n    \"vin\" : \"MAT800313N8H16573\",\n    \"stage\" : \"ORDER_CREATED\",\n    \"updatedAt\" : \"2026-05-12T19:11:11\",\n    \"metadata\":  {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["webhooks","device-fitment"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DEVICE_INSTALLED — VIN MAT800313N8H16571",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"trackingId\" : \"TRK-1778594367038-6435A639\",\n    \"vin\" : \"MAT800313N8H16571\",\n    \"stage\" : \"DEVICE_INSTALLED\",\n    \"updatedAt\" : \"2026-05-13T11:11:11Z\",\n    \"metadata\":  {\n        \"iccId\": \"ABC1234\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/webhooks/device-fitment",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["webhooks","device-fitment"]
+            },
+            "description": "Fires after device is physically installed. Marks installation ticket as COMPLETED and saves iccId."
+          },
+          "response": []
+        },
+        {
+          "name": "9. Get Device Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access-token}}" }],
+            "url": {
+              "raw": "{{cvp-base-url}}/device-status?vehicle-id=MAT800313N8H16571",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["device-status"],
+              "query": [{ "key": "vehicle-id", "value": "MAT800313N8H16571" }]
+            },
+            "description": "Check if device is communicating (Telemetry + CAN). Run after DEVICE_INSTALLED before moving to COMPLETED."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AIS140 Workflow",
+      "item": [
+        {
+          "name": "4. AIS140 Request Update Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access-token}}" }
             ],
-            "type": "text/javascript",
-            "packages": {},
-            "requests": {}
-          }
-        }
-      ],
-      "request": {
-        "auth": {
-          "type": "noauth"
-        },
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "urlencoded",
-          "urlencoded": [
-            {
-              "type": "text",
-              "key": "client_id",
-              "value": "{{client-id}}"
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vin\": \"MAT800313N8H16571\",\n    \"ticketNo\": \"AIS-TRK-1778594367038-6435A639\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Certification completed successfully\",\n    \"handler\": \"Ramesh Kumar\",\n    \"handlerContact\": \"9876543210\",\n    \"processEndDateTime\": \"2026-05-13T14:30:00\",\n    \"certificationRegistrationDate\": \"2026-05-13\",\n    \"certificationExpiryDate\": \"2028-05-13\",\n    \"certificateFileLocation\": \"s3://tml-ais140-certificates/2026/05/\",\n    \"certificateFileNames\": [\n      \"MAT800313N8H16571_AIS140_Certificate_2026.pdf\"\n    ],\n    \"metadata\": {\n      \"vendorRef\": \"REF-123\",\n      \"priority\": \"high\"\n    }\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            {
-              "type": "text",
-              "key": "client_secret",
-              "value": "{{client-secret}}"
+            "url": {
+              "raw": "{{cvp-base-url}}/webhooks/v2/ais140-requests",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["webhooks","v2","ais140-requests"]
             },
-            {
-              "type": "text",
-              "key": "grant_type",
-              "value": "client_credentials"
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{cvp-base-url}}/auth/realms/cvp/protocol/openid-connect/token",
-          "host": [
-            "{{cvp-base-url}}"
-          ],
-          "path": [
-            "auth",
-            "realms",
-            "cvp",
-            "protocol",
-            "openid-connect",
-            "token"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "2. Device Fitment Webhook",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"trackingId\" : \"TRK-1778594367038-6435A639\",\n    \"vin\" : \"MAT800313N8H16571\",\n    \"stage\" : \"DEVICE_INSTALLED\",\n    \"updatedAt\" : \"2026-05-13T11:11:11Z\",\n    \"metadata\":  {\n        \"iccId\": \"ABC1234\"\n    }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "{{cvp-base-url}}/webhooks/device-fitment",
-          "host": [
-            "{{cvp-base-url}}"
-          ],
-          "path": [
-            "webhooks",
-            "device-fitment"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "4. AIS140 Request Update Webhook",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
+            "description": "Called by iTriangle when AIS140 certification is done. Moves AIS140 ticket to COMPLETED and stores certificate details."
           },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{access-token}}"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"vin\": \"MAT800313N8H16571\",\n    \"ticketNo\": \"TKT-PENDING-001\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Certification completed successfully\",\n    \"handler\": \"Ramesh Kumar\",\n    \"handlerContact\": \"9876543210\",\n    \"processEndDateTime\": \"2026-05-13T14:30:00\",\n    \"certificationRegistrationDate\": \"2026-05-13\",\n    \"certificationExpiryDate\": \"2028-05-13\",\n    \"certificateFileLocation\": \"s3://tml-ais140-certificates/2026/05/\",\n    \"certificateFileNames\": [\n      \"MAT800313N8H16571_AIS140_Certificate_2026.pdf\"\n    ],\n    \"metadata\": {\n      \"vendorRef\": \"REF-123\",\n      \"priority\": \"high\"\n    }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
+          "response": []
         },
-        "url": {
-          "raw": "{{cvp-base-url}}/webhooks/v2/ais140-requests",
-          "host": [
-            "{{cvp-base-url}}"
-          ],
-          "path": [
-            "webhooks",
-            "v2",
-            "ais140-requests"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "5. Mining Request Update Webhook",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{access-token}}"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n    \"vin\": \"MAT800313N8H16572\",\n    \"department\": \"MINING_OPERATIONS\",\n    \"ticketNo\": \"MINING-2026-001234\",\n    \"status\": \"APPROVED\",\n    \"remark\": \"Mining permit approved for vehicle. All safety checks completed.\",\n    \"handler\": \"John Doe\",\n    \"handlerContact\": \"+91-9876543210\",\n    \"expiryDate\": \"2027-05-04\",\n    \"metadata\": {\n      \"permitType\": \"OPEN_CAST\",\n      \"mineLocation\": \"Jharkhand\",\n      \"operatorLicense\": \"MOP-2026-5678\",\n      \"safetyInspectionDate\": \"2026-04-15\",\n      \"approvedBy\": \"Regional Mining Officer\",\n      \"zoneCode\": \"EAST-01\"\n    }\n  }",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "{{cvp-base-url}}/webhooks/mining-requests",
-          "host": [
-            "{{cvp-base-url}}"
-          ],
-          "path": [
-            "webhooks",
-            "mining-requests"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "8. Upload AIS140 Certificates",
-      "request": {
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{access-token}}",
-              "type": "string"
-            }
-          ]
-        },
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "type": "text",
-              "key": "prefix",
-              "value": "ais140-certificates"
+        {
+          "name": "8. Upload AIS140 Certificates",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{access-token}}", "type": "string" }]
             },
-            {
-              "type": "file",
-              "key": "files",
-              "src": ""
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{cvp-base-url}}/object-store/upload",
-          "host": [
-            "{{cvp-base-url}}"
-          ],
-          "path": [
-            "object-store",
-            "upload"
-          ]
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "type": "text", "key": "prefix", "value": "ais140-certificates" },
+                { "type": "file", "key": "files",  "src": "" }
+              ]
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/object-store/upload",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["object-store","upload"]
+            },
+            "description": "Upload certificate PDF file. Run BEFORE the AIS140 Request Update Webhook. Use returned file path in certificateFileLocation."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "9. Get device status - 1 vehicle",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{access-token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{cvp-base-url}}/device-status?vehicle-id=MAT800313N8H16571",
-          "host": [
-            "{{cvp-base-url}}"
-          ],
-          "path": [
-            "device-status"
-          ],
-          "query": [
-            {
-              "key": "vehicle-id",
-              "value": "MAT800313N8H16571"
-            }
-          ]
+      "name": "Mining Workflow",
+      "item": [
+        {
+          "name": "5. Mining Request Update Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access-token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vin\": \"MAT800313N8H16572\",\n    \"department\": \"MINING_OPERATIONS\",\n    \"ticketNo\": \"MIN-TRK-1778595514787-5D91DE01\",\n    \"status\": \"APPROVED\",\n    \"remark\": \"Mining permit approved. All safety checks completed.\",\n    \"handler\": \"John Doe\",\n    \"handlerContact\": \"+91-9876543210\",\n    \"expiryDate\": \"2027-05-04\",\n    \"metadata\": {\n      \"permitType\": \"OPEN_CAST\",\n      \"mineLocation\": \"Jharkhand\",\n      \"operatorLicense\": \"MOP-2026-5678\",\n      \"safetyInspectionDate\": \"2026-04-15\",\n      \"approvedBy\": \"Regional Mining Officer\",\n      \"zoneCode\": \"EAST-01\"\n    }\n  }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{cvp-base-url}}/webhooks/mining-requests",
+              "host": ["{{cvp-base-url}}"],
+              "path": ["webhooks","mining-requests"]
+            },
+            "description": "Called by iTriangle when mining permit is approved. Moves Mining ticket to COMPLETED."
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     }
   ],
   "auth": {
     "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{access-token}}",
-        "type": "string"
-      }
-    ]
+    "bearer": [{ "key": "token", "value": "{{access-token}}", "type": "string" }]
   },
   "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "packages": {},
-        "requests": {},
-        "exec": [
-          ""
-        ]
-      }
-    },
-    {
-      "listen": "test",
-      "script": {
-        "type": "text/javascript",
-        "packages": {},
-        "requests": {},
-        "exec": [
-          ""
-        ]
-      }
-    }
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [""] } },
+    { "listen": "test",       "script": { "type": "text/javascript", "exec": [""] } }
   ],
   "variable": [
-    {
-      "key": "cvp-base-url",
-      "value": "https://cvp-qa.api.tatamotors"
-    },
-    {
-      "key": "client-id",
-      "value": "itriangle"
-    },
-    {
-      "key": "client-secret",
-      "value": "6p0ifiTHAQTLIKRLwofKbryAcWfU3Htw"
-    },
-    {
-      "key": "access-token",
-      "value": ""
-    }
+    { "key": "cvp-base-url",  "value": "https://cvp-qa.api.tatamotors" },
+    { "key": "client-id",     "value": "itriangle" },
+    { "key": "client-secret", "value": "6p0ifiTHAQTLIKRLwofKbryAcWfU3Htw" },
+    { "key": "access-token",  "value": "" }
   ]
 }
