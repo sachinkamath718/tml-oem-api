@@ -1,77 +1,41 @@
 const pool = require('../config/db');
 
-/**
- * PUT /order/fitment/spoc
- *
- * Request Body:
- * {
- *   "tracking_id": "TRK123456789",
- *   "name": "Amit Sharma",
- *   "contact_no": "+919123456789",
- *   "email": "amit.sharma@abcfleet.com"
- * }
- *
- * Success (200):
- * { "err": null, "data": { "tracking_id": "TRK123456789", "updated": true } }
- *
- * Error (400):
- * { "err": { "code": "INVALID_DATA", "message": "..." }, "data": null }
- *
- * Error (404):
- * { "err": { "code": 404, "message": "Tracking ID not found" }, "data": null }
- */
 const updateSpoc = async (req, res) => {
     try {
         const { tracking_id, name, contact_no, email } = req.body;
 
-        // ── Validate required fields ──────────────────────────────
         if (!tracking_id || !name || !contact_no || !email) {
-            return res.status(404).json({
-                err:  { code: 404, message: 'Tracking ID not found' },
-                data: null,
-            });
+            return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
         }
 
-        // ── Verify tracking_id exists (vehicle-level tracking ID) ──
-        const [vehicles] = await pool.execute(
-            `SELECT id FROM order_vehicles WHERE tracking_id = ? LIMIT 1`, [tracking_id]
+        const vehicles = await pool.query(
+            `SELECT id FROM order_vehicles WHERE tracking_id = $1 LIMIT 1`, [tracking_id]
         );
-        if (!vehicles.length) {
-            return res.status(404).json({
-                err:  { code: 404, message: 'Tracking ID not found' },
-                data: null,
-            });
+        if (!vehicles.rows.length) {
+            return res.status(404).json({ err: { code: 404, message: 'Tracking ID not found' }, data: null });
         }
 
-        // ── Upsert SPOC ───────────────────────────────────────────
-        const [existing] = await pool.execute(
-            `SELECT id FROM spoc_details WHERE tracking_id = ? LIMIT 1`, [tracking_id]
+        const existing = await pool.query(
+            `SELECT id FROM spoc_details WHERE tracking_id = $1 LIMIT 1`, [tracking_id]
         );
 
-        if (existing.length) {
-            await pool.execute(
-                `UPDATE spoc_details SET name=?, contact_no=?, email=?, updated_at=NOW() WHERE tracking_id=?`,
+        if (existing.rows.length) {
+            await pool.query(
+                `UPDATE spoc_details SET name=$1, contact_no=$2, email=$3, updated_at=NOW() WHERE tracking_id=$4`,
                 [name, contact_no, email, tracking_id]
             );
         } else {
-            await pool.execute(
-                `INSERT INTO spoc_details (tracking_id, name, contact_no, email) VALUES (?,?,?,?)`,
+            await pool.query(
+                `INSERT INTO spoc_details (tracking_id, name, contact_no, email) VALUES ($1,$2,$3,$4)`,
                 [tracking_id, name, contact_no, email]
             );
         }
 
-        // ── Success ───────────────────────────────────────────────
-        return res.status(200).json({
-            err:  null,
-            data: { tracking_id, updated: true },
-        });
+        return res.status(200).json({ err: null, data: { tracking_id, updated: true } });
 
     } catch (err) {
         console.error('[updateSpoc] Error:', err);
-        return res.status(500).json({
-            err:  { code: 'SERVER_ERROR', message: 'Internal server error.' },
-            data: null,
-        });
+        return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 

@@ -12,69 +12,39 @@ const validateMiningVehicle = (vd) => {
     return errors;
 };
 
-/** Maps DB status → spec uppercase status */
 const mapStatus = (s) => ({
-    'pending':                        'PENDING',
-    'in_progress':                    'IN_PROGRESS',
-    'completed':                      'COMPLETED',
-    'on_hold':                        'ON_HOLD',
-    'failed':                         'FAILED',
-    'cancelled':                      'CANCELLED',
+    'pending':'PENDING','in_progress':'IN_PROGRESS','completed':'COMPLETED',
+    'on_hold':'ON_HOLD','failed':'FAILED','cancelled':'CANCELLED',
     'cancelled_due_to_change_request':'CANCELLED_DUE_TO_CHANGE_REQUEST',
 })[s] || 'PENDING';
 
-/**
- * POST /mining
- */
 const createMiningRequest = async (req, res) => {
     try {
         const vehicles = req.body;
-
         if (!Array.isArray(vehicles) || vehicles.length === 0) {
             return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Request body must be a non-empty array.' }, data: null });
         }
 
-        const results      = [];
-        let   hasErrors    = false;
-        let   hasSuccesses = false;
+        const results = []; let hasErrors = false; let hasSuccesses = false;
 
         for (const item of vehicles) {
-            const vd  = item.vehicle_details  || {};
-            const cd  = item.customer_details || {};
-            const vin = vd.vin;
-
+            const vd = item.vehicle_details || {}, cd = item.customer_details || {}, vin = vd.vin;
             const validationErrors = validateMiningVehicle(vd);
             if (validationErrors.length > 0) {
                 results.push({ vin: vin || null, mining_ticket_no: null, validation_errors: validationErrors });
-                hasErrors = true;
-                continue;
+                hasErrors = true; continue;
             }
 
-            let trackingId      = generateTrackingId();
-            let orderTrackingId = null;
-
-            const [existing] = await pool.execute(
-                `SELECT tracking_id, mining_ticket_no FROM order_vehicles WHERE vin = ? LIMIT 1`, [vin]
-            );
-
-            if (existing.length) {
-                trackingId      = existing[0].tracking_id;
-                orderTrackingId = existing[0].tracking_id;
-                // Do NOT return old ticket — always create a fresh one for renewals
-            }
+            let trackingId = generateTrackingId(), orderTrackingId = null;
+            const existing = await pool.query(`SELECT tracking_id, mining_ticket_no FROM order_vehicles WHERE vin = $1 LIMIT 1`, [vin]);
+            if (existing.rows.length) { trackingId = existing.rows[0].tracking_id; orderTrackingId = existing.rows[0].tracking_id; }
 
             const miningTicketNo = `MIN-TKT-${generateTicketId()}`;
-
-            await pool.execute(
-                `INSERT INTO mining_tickets
-                 (mining_ticket_no, vin, tracking_id, order_tracking_id, vehicle_details, customer_details, status)
-                 VALUES (?,?,?,?,?,?,'pending')`,
-                [miningTicketNo, vin, trackingId, orderTrackingId, JSON.stringify(vd), JSON.stringify(cd)]
+            await pool.query(
+                `INSERT INTO mining_tickets (mining_ticket_no, vin, tracking_id, order_tracking_id, vehicle_details, customer_details, status) VALUES ($1,$2,$3,$4,$5,$6,'pending')`,
+                [miningTicketNo, vin, trackingId, orderTrackingId, vd, cd]
             );
-
-            if (existing.length) {
-                await pool.execute(`UPDATE order_vehicles SET mining_ticket_no=? WHERE vin=?`, [miningTicketNo, vin]);
-            }
+            if (existing.rows.length) { await pool.query(`UPDATE order_vehicles SET mining_ticket_no=$1 WHERE vin=$2`, [miningTicketNo, vin]); }
 
             results.push({ vin, mining_ticket_no: miningTicketNo, validation_errors: null });
             hasSuccesses = true;
@@ -82,95 +52,45 @@ const createMiningRequest = async (req, res) => {
 
         const statusCode = hasErrors && hasSuccesses ? 206 : hasErrors ? 400 : 200;
         return res.status(statusCode).json({ err: null, data: results });
-
     } catch (err) {
         console.error('[createMiningRequest] Error:', err);
         return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
     }
 };
 
-/**
- * POST /mining/ticket-status
- * Body: [{ "vin_no": "...", "ticket_no": "..." }]
- *
- * Response: { "err": null, "data": [{ vin, ticket_no, status, remark,
- *   handler, handler_contact, process_datetime, polling_datetime, metadata }] }
- */
 const getMiningTicketStatus = async (req, res) => {
     try {
-        // Accept both { err, data: [...] } and plain array
-        const body     = req.body;
+        const body = req.body;
         const requests = Array.isArray(body) ? body : (body?.data || []);
-
         if (!Array.isArray(requests) || requests.length === 0) {
-            return res.status(400).json({
-                err:  { code: 'INVALID_DATA', message: 'Request body must contain a non-empty data array of { vin_no, ticket_no }.' },
-                data: null,
-            });
+            return res.status(400).json({ err: { code: 'INVALID_DATA', message: 'Request body must contain a non-empty data array of { vin_no, ticket_no }.' }, data: null });
         }
 
         const results = [];
-
         for (const item of requests) {
             const { vin_no, ticket_no } = item;
-
             if (!vin_no && !ticket_no) {
-                results.push({
-                    vin: null, ticket_no: null, status: null,
-                    remark: null, handler: null, handler_contact: null,
-                    process_datetime: null, polling_datetime: null, metadata: {},
-                    error: 'vin_no or ticket_no required',
-                });
+                results.push({ vin: null, ticket_no: null, status: null, remark: null, handler: null, handler_contact: null, process_datetime: null, polling_datetime: null, metadata: {}, error: 'vin_no or ticket_no required' });
                 continue;
             }
 
-            let rows;
-            if (ticket_no) {
-                [rows] = await pool.execute(
-                    `SELECT * FROM mining_tickets WHERE mining_ticket_no = ? LIMIT 1`, [ticket_no]
-                );
-            } else {
-                // Return ALL tickets for this VIN, newest first
-                [rows] = await pool.execute(
-                    `SELECT * FROM mining_tickets WHERE vin = ? ORDER BY created_at DESC`, [vin_no]
-                );
-            }
+            const result = ticket_no
+                ? await pool.query(`SELECT * FROM mining_tickets WHERE mining_ticket_no = $1 LIMIT 1`, [ticket_no])
+                : await pool.query(`SELECT * FROM mining_tickets WHERE vin = $1 ORDER BY created_at DESC`, [vin_no]);
 
-            if (!rows.length) {
-                results.push({
-                    vin: vin_no || null, ticket_no: ticket_no || null,
-                    status: null, remark: null, handler: null, handler_contact: null,
-                    process_datetime: null, polling_datetime: null, metadata: {},
-                    error: 'Ticket not found',
-                });
+            if (!result.rows.length) {
+                results.push({ vin: vin_no || null, ticket_no: ticket_no || null, status: null, remark: null, handler: null, handler_contact: null, process_datetime: null, polling_datetime: null, metadata: {}, error: 'Ticket not found' });
                 continue;
             }
 
-            // Loop over ALL rows — each ticket gets its own result entry
-            for (const t of rows) {
+            for (const t of result.rows) {
                 let metadata = {};
-                if (t.handler_details) {
-                    metadata = typeof t.handler_details === 'string'
-                        ? JSON.parse(t.handler_details)
-                        : t.handler_details;
-                }
-
-                results.push({
-                    vin:              t.vin,
-                    ticket_no:        t.mining_ticket_no,
-                    status:           mapStatus(t.status),
-                    remark:           t.remark         || null,
-                    handler:          t.handler         || null,
-                    handler_contact:  t.handler_contact || null,
-                    process_datetime: toIST(t.process_datetime),
-                    polling_datetime: toIST(t.polling_datetime),
-                    metadata,
-                });
+                if (t.handler_details) { metadata = typeof t.handler_details === 'string' ? JSON.parse(t.handler_details) : t.handler_details; }
+                results.push({ vin: t.vin, ticket_no: t.mining_ticket_no, status: mapStatus(t.status), remark: t.remark || null, handler: t.handler || null, handler_contact: t.handler_contact || null, process_datetime: toIST(t.process_datetime), polling_datetime: toIST(t.polling_datetime), metadata });
             }
         }
 
         return res.status(200).json({ err: null, data: results });
-
     } catch (err) {
         console.error('[getMiningTicketStatus] Error:', err);
         return res.status(500).json({ err: { code: 'SERVER_ERROR', message: 'Internal server error.' }, data: null });
