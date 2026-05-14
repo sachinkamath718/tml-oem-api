@@ -1,301 +1,179 @@
 {
   "info": {
-    "_postman_id": "fe1938dc-c20c-458f-81d2-20da73de4955",
-    "name": "TML Aftermarket APIs — v3.0.0",
-    "description": "TML APIs consumed by the Vendor (iTriangle/FleetEdge)\n\nInstallation Workflow:\n  1. Generate Token\n  2. Device Fitment Webhook — TCU_SHIPPED\n  3. Device Fitment Webhook — TCU_DELIVERED\n  4. Device Fitment Webhook — DEVICE_INSTALLED (triggers IMEI update)\n  5. Get Device Status (1 vehicle / multiple vehicles)\n\nAIS140 Workflow:\n  1. Get SIM Expiry → Check before moving to IN_PROGRESS\n  2. SIM Extension Request → if expired\n  3. Get SIM Expiry → verify extension\n  4. AIS140 Request Update Webhook → IN_PROGRESS\n  5. Upload AIS140 Certificates\n  6. AIS140 Request Update Webhook → COMPLETED\n\nMining Workflow:\n  1. Get SIM Expiry → Check before moving to IN_PROGRESS\n  2. SIM Extension Request → if expired\n  3. Mining Request Update Webhook → COMPLETED",
+    "name": "TML OEM API",
+    "description": "TML OEM API — end-to-end Postman collection.\n\nFlow:\n1. Generate Token → auto-saved to {{token}}\n2. Order Creation → auto-saves first vehicle's {{tracking_id}}\n3. Order Status (all vehicles)\n4. SPOC Update\n5. AIS140 Cert Request → creates AIS ticket(s)\n6. Mining Cert Request → creates mining ticket(s)\n7. AIS140 Ticket Status — all tickets by VIN (ticket_no: null)\n8. AIS140 Ticket Status — single ticket by ticket_no\n9. Mining Ticket Status — all tickets by VIN (ticket_no: null)\n10. Mining Ticket Status — single ticket by ticket_no\n\nNote: updated_at in Order Status is Unix epoch milliseconds (IST-based).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base-url",       "value": "https://tml-oem-api.vercel.app",  "description": "TML API base URL" },
-    { "key": "access-token",   "value": "",                                  "description": "Auto-set by Generate Token" },
-    { "key": "vin-1",          "value": "MAT800313N8H16571" },
-    { "key": "vin-2",          "value": "MAT800313N8H16572" },
-    { "key": "vin-3",          "value": "MAT800313N8H16573" },
-    { "key": "tracking-id-1",  "value": "TRK-1778594367038-6435A639" },
-    { "key": "tracking-id-2",  "value": "TRK-1778595514787-5D91DE01" },
-    { "key": "tracking-id-3",  "value": "TRK-1778596418166-90CD9AB7" }
+    { "key": "base_url",       "value": "https://tml-oem-api.vercel.app", "type": "string" },
+    { "key": "token",          "value": "", "type": "string" },
+    { "key": "tracking_id",    "value": "", "type": "string" },
+    { "key": "ais_ticket_no",  "value": "", "type": "string" },
+    { "key": "min_ticket_no",  "value": "", "type": "string" }
   ],
-  "auth": {
-    "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{access-token}}", "type": "string" }]
-  },
   "item": [
     {
-      "name": "🔑 Auth",
-      "item": [
-        {
-          "name": "1. Generate Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var r = pm.response.json();",
-                  "var tok = r.access_token || (r.data && r.data.access_token);",
-                  "if (tok) { pm.collectionVariables.set('access-token', tok); console.log('Token saved'); }"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                { "key": "client_id",     "value": "tml-client-id" },
-                { "key": "client_secret", "value": "tml-client-secret" },
-                { "key": "grant_type",    "value": "client_credentials" }
-              ]
-            },
-            "url": "{{base-url}}/auth/token",
-            "description": "Authenticates and gets a Bearer token (valid 12 hrs). Token auto-saved to {{access-token}}."
-          },
-          "response": []
-        }
-      ]
+      "name": "1. Generate Token",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var r = pm.response.json();",
+        "var tok = r.access_token || (r.data && r.data.access_token);",
+        "if (tok) { pm.collectionVariables.set('token', tok); console.log('Token saved:', tok.substring(0,20) + '...'); }"
+      ], "type": "text/javascript" }}],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "url": "{{base_url}}/auth/token",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "client_id",     "value": "tml-client-id" },
+            { "key": "client_secret", "value": "tml-client-secret" },
+            { "key": "grant_type",    "value": "client_credentials" }
+          ]
+        },
+        "description": "Generates a Bearer token valid for 12 hours. Token is auto-saved to {{token}}."
+      }
     },
     {
-      "name": "🔧 Installation Workflow",
-      "description": "TML Creates Order → Vendor creates ticket → PENDING → Assign Technician → IN_PROGRESS → DEVICE_INSTALLED webhook → Check Device Status → COMPLETED",
-      "item": [
-        {
-          "name": "2a. Device Fitment Webhook — TCU_SHIPPED (VIN-1)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"trackingId\": \"{{tracking-id-1}}\",\n    \"vin\": \"{{vin-1}}\",\n    \"stage\": \"TCU_SHIPPED\",\n    \"updatedAt\": \"2026-05-13T09:00:00Z\",\n    \"meta\": {\n        \"iccId\": \"89914504200014599001\",\n        \"courier\": \"BlueDart\",\n        \"courierTrackingNumber\": \"BD-1234567890\",\n        \"expectedDelivery\": \"2026-05-16\",\n        \"remarks\": \"Device dispatched from warehouse\"\n    }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/device-fitment",
-            "description": "Notify TML that device has been shipped. Updates shipment ticket to IN_PROGRESS."
-          },
-          "response": []
+      "name": "2. Order Creation",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var r = pm.response.json();",
+        "if (r.data && r.data[0]) {",
+        "  pm.collectionVariables.set('tracking_id', r.data[0].order_tracking_id);",
+        "  console.log('tracking_id saved:', r.data[0].order_tracking_id);",
+        "}"
+      ], "type": "text/javascript" }}],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/order",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_id\": \"TML-ORD-2024-01201\",\n  \"customer_details\": {\n    \"name\": \"Shree Ganesh Logistics Pvt Ltd\",\n    \"pan\": \"AAFCS7862Q\",\n    \"gst\": \"29AAFCS7862Q1ZK\",\n    \"email\": \"ops@shreeganeshlogistics.in\",\n    \"contact_number\": \"+918800441122\"\n  },\n  \"location_mappings\": [\n    {\n      \"location\": {\n        \"id\": \"LOC-PUN-01\",\n        \"address\": \"Survey No. 45, Bhosari Industrial Estate\",\n        \"city\": \"Pune\",\n        \"pincode\": \"411026\",\n        \"district\": \"Pune\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Suresh Patil\",\n        \"contact_number\": \"+917709988001\",\n        \"email\": \"suresh.patil@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE60021\",\n          \"registration_no\": \"MH12DE4570\",\n          \"engine_no\": \"CUMMINS6BT5300\",\n          \"model\": \"TATA Prima 4028.S\",\n          \"make\": \"TATA\",\n          \"variant\": \"4028.S HE\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\",       \"duration_in_years\": 2,    \"metadata\": null },\n            { \"name\": \"MINING\",       \"duration_in_years\": 2,    \"metadata\": { \"department\": \"Khanij MH\" } },\n            { \"name\": \"FLEET_TRACK\",  \"duration_in_years\": null, \"metadata\": null },\n            { \"name\": \"PANIC_BUTTON\", \"duration_in_years\": null, \"metadata\": { \"quantity\": 1 } },\n            { \"name\": \"IMMOBILIZER\",  \"duration_in_years\": null, \"metadata\": { \"quantity\": 1 } }\n          ]\n        },\n        {\n          \"vin\": \"MAT458391RWE60064\",\n          \"registration_no\": \"MH12DE4571\",\n          \"engine_no\": \"CUMMINS6BT5301\",\n          \"model\": \"TATA LPT 2518\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPT 2518 6S\",\n          \"mfg_year\": \"2024\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH12\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null }\n          ]\n        }\n      ]\n    },\n    {\n      \"location\": {\n        \"id\": \"LOC-NGP-02\",\n        \"address\": \"Khasra No 112, Butibori MIDC\",\n        \"city\": \"Nagpur\",\n        \"pincode\": \"441108\",\n        \"district\": \"Nagpur\",\n        \"state\": \"Maharashtra\"\n      },\n      \"spoc\": {\n        \"name\": \"Dinesh Thakur\",\n        \"contact_number\": \"+919823001234\",\n        \"email\": \"dinesh.thakur@shreeganesh.in\"\n      },\n      \"vehicle_details\": [\n        {\n          \"vin\": \"MAT458391RWE60098\",\n          \"registration_no\": \"MH31GH7891\",\n          \"engine_no\": \"CUMMINS6BT5302\",\n          \"model\": \"TATA LPK 2516\",\n          \"make\": \"TATA\",\n          \"variant\": \"LPK 2516 6S\",\n          \"mfg_year\": \"2023\",\n          \"fuel_type\": \"DIESEL\",\n          \"emission_type\": \"BS6\",\n          \"rto_office_code\": \"MH31\",\n          \"rto_state\": \"MH\",\n          \"products\": [\n            { \"name\": \"AIS140\", \"duration_in_years\": 2, \"metadata\": null },\n            { \"name\": \"MINING\", \"duration_in_years\": 3, \"metadata\": { \"department\": \"Nagpur Khanij\" } }\n          ]\n        }\n      ]\n    }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
         },
-        {
-          "name": "2b. Device Fitment Webhook — TCU_DELIVERED (VIN-1)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"trackingId\": \"{{tracking-id-1}}\",\n    \"vin\": \"{{vin-1}}\",\n    \"stage\": \"TCU_DELIVERED\",\n    \"updatedAt\": \"2026-05-16T14:00:00Z\",\n    \"meta\": {\n        \"iccId\": \"89914504200014599001\",\n        \"remarks\": \"Device delivered to customer\"\n    }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/device-fitment",
-            "description": "Notify TML that device has been delivered. Updates delivery ticket to COMPLETED."
-          },
-          "response": []
-        },
-        {
-          "name": "2c. Device Fitment Webhook — DEVICE_INSTALLED (VIN-1)",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"trackingId\": \"{{tracking-id-1}}\",\n    \"vin\": \"{{vin-1}}\",\n    \"stage\": \"DEVICE_INSTALLED\",\n    \"updatedAt\": \"2026-05-17T11:00:00Z\",\n    \"meta\": {\n        \"technicianName\": \"Rajesh Kumar\",\n        \"installationDate\": \"2026-05-17\",\n        \"deviceSerial\": \"DEV987654321\",\n        \"kycMobileNo\": \"9876543210\",\n        \"kycCustomerType\": \"I\",\n        \"remarks\": \"Installation completed successfully\"\n    }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/device-fitment",
-            "description": "🔑 KEY STEP: Notify TML that device is installed. Triggers IMEI update and marks installation ticket COMPLETED. Run Get Device Status next to verify communication."
-          },
-          "response": []
-        },
-        {
-          "name": "9. Get Device Status — 1 Vehicle (VIN-1)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base-url}}/device-status?vehicle-id={{vin-1}}",
-              "host": ["{{base-url}}"],
-              "path": ["device-status"],
-              "query": [{ "key": "vehicle-id", "value": "{{vin-1}}" }]
-            },
-            "description": "Check if device is communicating (Telemetry + CAN). Run after DEVICE_INSTALLED. If receivedMessages contains both CAN_DATA and TELEMETRY_DATA → move to COMPLETED."
-          },
-          "response": []
-        },
-        {
-          "name": "7. Get Device Status — Multiple Vehicles",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"vins\": [\n        \"{{vin-1}}\",\n        \"{{vin-2}}\",\n        \"{{vin-3}}\"\n    ]\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/vehicle/device-status",
-            "description": "Get device communication status for multiple vehicles. Returns telemetry + CAN last message timestamps and odometer readings."
-          },
-          "response": []
-        }
-      ]
+        "description": "Creates an order with 3 vehicles across 2 locations.\nResponse: array of { vin, order_tracking_id, ais140_ticket_no, mining_ticket_no } per vehicle.\nThe first vehicle's order_tracking_id is auto-saved to {{tracking_id}}."
+      }
     },
     {
-      "name": "📡 AIS140 Workflow",
-      "description": "PENDING → Check SIM Expiry → (extend if expired) → IN_PROGRESS webhook → Generate Cert → Upload Cert → COMPLETED webhook",
-      "item": [
-        {
-          "name": "6. Get SIM Expiry — Check Before IN_PROGRESS",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"iccIds\": [\n        \"89914504200014599001\",\n        \"89914504200014599002\",\n        \"89914504200014599003\"\n    ]\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/sim/expiry",
-            "description": "⚠️ MANDATORY: Check SIM expiry before moving ticket to IN_PROGRESS. If simExpiryDate < today → run SIM Extension Request first."
-          },
-          "response": []
-        },
-        {
-          "name": "3. SIM Extension Request — If Expired",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"iccId\": \"89914504200014599001\",\n    \"expiryDate\": \"2027-12-31\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/sim/expiry",
-            "description": "Extend the SIM data plan. API calculates months between current expiry and requested date and extends accordingly. Run only if SIM is expired. After this, call Get SIM Expiry again to confirm."
-          },
-          "response": []
-        },
-        {
-          "name": "4a. AIS140 Request Update Webhook — IN_PROGRESS",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"vin\": \"{{vin-1}}\",\n    \"ticketNo\": \"AIS-{{tracking-id-1}}\",\n    \"status\": \"IN_PROGRESS\",\n    \"remark\": \"AIS140 certification in progress — documents under review\",\n    \"handler\": \"Suresh Reddy\",\n    \"handlerContact\": \"9988776655\",\n    \"metadata\": {}\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/v2/ais140-requests",
-            "description": "Call when ticket moves to IN_PROGRESS. Status options: PENDING | IN_PROGRESS | ON_HOLD | CANCELLED | CANCELLED_DUE_TO_CHANGE_REQUEST | COMPLETED"
-          },
-          "response": []
-        },
-        {
-          "name": "8. Upload AIS140 Certificates",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "prefix",
-                  "value": "2026-05-17/{{vin-1}}",
-                  "type": "text",
-                  "description": "S3 prefix — no bucket name, just the folder path"
-                },
-                {
-                  "key": "files",
-                  "type": "file",
-                  "src": "",
-                  "description": "Certificate PDF (max 2MB, up to 5 files)"
-                }
-              ]
-            },
-            "url": "{{base-url}}/object-store/upload",
-            "description": "Upload AIS140 certificate PDF to TML's S3. Run BEFORE the COMPLETED webhook. Use the returned prefix in certificateFileLocation field of the COMPLETED webhook."
-          },
-          "response": []
-        },
-        {
-          "name": "4b. AIS140 Request Update Webhook — COMPLETED",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"vin\": \"{{vin-1}}\",\n    \"ticketNo\": \"AIS-{{tracking-id-1}}\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Certification completed successfully\",\n    \"handler\": \"Ramesh Kumar\",\n    \"handlerContact\": \"9876543210\",\n    \"processEndDateTime\": \"2026-05-17T14:30:00\",\n    \"certificationRegistrationDateTime\": \"2026-05-17T10:00:00\",\n    \"certificationExpiryDate\": \"2028-05-17\",\n    \"certificateFileLocation\": \"s3://tml-ais140-certificates/2026-05-17/{{vin-1}}/\",\n    \"certificateFileNames\": [\n        \"{{vin-1}}_AIS140_Certificate_2026.pdf\"\n    ],\n    \"metadata\": {\n        \"vendorRef\": \"REF-2026-001\"\n    }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/v2/ais140-requests",
-            "description": "🔑 FINAL STEP: Mark AIS140 ticket COMPLETED. Upload certificates first (API #8), then use the returned path in certificateFileLocation."
-          },
-          "response": []
-        }
-      ]
+      "name": "3. Order Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/order/status?trackingId={{tracking_id}}",
+        "description": "Returns status for ALL vehicles in the order.\nPass any vehicle's order_tracking_id as trackingId.\nupdated_at is Unix epoch milliseconds (IST-based). Convert at epochconverter.com."
+      }
     },
     {
-      "name": "⛏️ Mining Workflow",
-      "description": "PENDING → Check SIM Expiry → (extend if expired) → IN_PROGRESS → COMPLETED webhook",
-      "item": [
-        {
-          "name": "6. Get SIM Expiry — Check Before IN_PROGRESS",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"iccIds\": [\n        \"89914504200014599001\",\n        \"89914504200014599002\"\n    ]\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/sim/expiry",
-            "description": "⚠️ MANDATORY: Check SIM expiry before moving ticket to IN_PROGRESS."
-          },
-          "response": []
+      "name": "4. SPOC Update",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/order/fitment/spoc",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tracking_id\": \"{{tracking_id}}\",\n  \"name\": \"Amit Sharma\",\n  \"contact_no\": \"+919123456789\",\n  \"email\": \"amit.sharma@abcfleet.com\"\n}",
+          "options": { "raw": { "language": "json" } }
         },
-        {
-          "name": "3. SIM Extension Request — If Expired",
-          "request": {
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"iccId\": \"89914504200014599001\",\n    \"expiryDate\": \"2027-12-31\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/sim/expiry",
-            "description": "Extend SIM data plan if expired. Check again with Get SIM Expiry to confirm extension."
-          },
-          "response": []
+        "description": "Updates or creates SPOC details for a vehicle's tracking_id.\nUse the order_tracking_id from Order Creation response."
+      }
+    },
+    {
+      "name": "5. AIS140 Cert Request",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var r = pm.response.json();",
+        "if (r.data && r.data[0] && r.data[0].ticket_no) {",
+        "  pm.collectionVariables.set('ais_ticket_no', r.data[0].ticket_no);",
+        "  console.log('AIS ticket saved:', r.data[0].ticket_no);",
+        "}"
+      ], "type": "text/javascript" }}],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/ais140",
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT458391RWE60021\",\n      \"iccid\": \"89914504200014599001\",\n      \"device_imei\": \"356938035651001\",\n      \"device_make\": \"Teltonika\",\n      \"device_model\": \"FMB920\",\n      \"engine_no\": \"CUMMINS6BT5300\",\n      \"rto_office_code\": \"MH12\",\n      \"rto_state\": \"MH\",\n      \"sim_expiry_date\": \"2027-06-30\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": {\n      \"name\": \"Shree Ganesh Logistics Pvt Ltd\",\n      \"city\": \"Pune\",\n      \"state\": \"Maharashtra\",\n      \"mobile_no\": \"8800441122\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT458391RWE60064\",\n      \"iccid\": \"\",\n      \"device_imei\": \"\",\n      \"rto_office_code\": \"\",\n      \"rto_state\": \"\",\n      \"sim_expiry_date\": \"\",\n      \"certificate_validity_duration_in_year\": 2\n    },\n    \"customer_details\": { \"name\": \"Shree Ganesh Logistics Pvt Ltd\" }\n  }\n]",
+          "options": { "raw": { "language": "json" } }
         },
-        {
-          "name": "5a. Mining Request Update Webhook — IN_PROGRESS",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"vin\": \"{{vin-2}}\",\n    \"ticketNo\": \"MIN-{{tracking-id-2}}\",\n    \"status\": \"IN_PROGRESS\",\n    \"remark\": \"Mining permit application in progress\",\n    \"handler\": \"Suresh Reddy\",\n    \"handlerContact\": \"9988776655\",\n    \"metadata\": {}\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/mining-requests",
-            "description": "Call when mining ticket moves to IN_PROGRESS. Status options: PENDING | IN_PROGRESS | ON_HOLD | COMPLETED"
-          },
-          "response": []
+        "description": "Creates AIS140 certification tickets.\nVIN1 (valid) → returns new AIS-TKT-XXXXXXXXXX, saved to {{ais_ticket_no}}.\nVIN2 (missing fields) → returns validation_errors.\nCalling this again for the same VIN creates a NEW ticket (renewal support)."
+      }
+    },
+    {
+      "name": "6. Mining Cert Request",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var r = pm.response.json();",
+        "if (r.data && r.data[0] && r.data[0].mining_ticket_no) {",
+        "  pm.collectionVariables.set('min_ticket_no', r.data[0].mining_ticket_no);",
+        "  console.log('Mining ticket saved:', r.data[0].mining_ticket_no);",
+        "}"
+      ], "type": "text/javascript" }}],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/mining",
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT458391RWE60021\",\n      \"iccid\": \"89914504200019980001\",\n      \"device_imei\": \"490154203240001\",\n      \"device_make\": \"Concox\",\n      \"device_model\": \"AT4\",\n      \"engine_no\": \"CUMMINS6BT5300\",\n      \"department\": \"Khanij MH\",\n      \"sim_expiry_date\": \"2027-01-31\",\n      \"duration_in_year\": 3\n    },\n    \"customer_details\": {\n      \"name\": \"Shree Ganesh Logistics Pvt Ltd\",\n      \"city\": \"Pune\",\n      \"state\": \"Maharashtra\",\n      \"mobile_no\": \"8800441122\"\n    }\n  },\n  {\n    \"vehicle_details\": {\n      \"vin\": \"MAT458391RWE60098\",\n      \"iccid\": \"\",\n      \"device_imei\": \"\",\n      \"department\": \"\",\n      \"sim_expiry_date\": \"\",\n      \"duration_in_year\": 0\n    },\n    \"customer_details\": { \"name\": \"Shree Ganesh Logistics Pvt Ltd\" }\n  }\n]",
+          "options": { "raw": { "language": "json" } }
         },
-        {
-          "name": "5b. Mining Request Update Webhook — COMPLETED",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"vin\": \"{{vin-2}}\",\n    \"ticketNo\": \"MIN-{{tracking-id-2}}\",\n    \"status\": \"COMPLETED\",\n    \"remark\": \"Mining permit approved. All safety checks completed.\",\n    \"handler\": \"John Doe\",\n    \"handlerContact\": \"+91-9876543210\",\n    \"expiryDate\": \"2027-05-17\",\n    \"department\": \"MINING_OPERATIONS\",\n    \"metadata\": {\n        \"permitType\": \"OPEN_CAST\",\n        \"mineLocation\": \"Jharkhand\",\n        \"operatorLicense\": \"MOP-2026-5678\",\n        \"safetyInspectionDate\": \"2026-05-15\",\n        \"approvedBy\": \"Regional Mining Officer\",\n        \"zoneCode\": \"EAST-01\"\n    }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base-url}}/webhooks/mining-requests",
-            "description": "🔑 FINAL STEP: Mark Mining ticket COMPLETED. Include expiryDate and department."
-          },
-          "response": []
-        }
-      ]
+        "description": "Creates mining certification tickets.\nVIN1 (valid) → returns new MIN-TKT-XXXXXXXXXX, saved to {{min_ticket_no}}.\nVIN2 (missing fields) → returns validation_errors.\nCalling again for the same VIN creates a NEW ticket (renewal support)."
+      }
+    },
+    {
+      "name": "7. AIS140 Ticket Status",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/ais140/ticket-status",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT458391RWE60021\", \"ticket_no\": null },\n    { \"vin_no\": \"MAT458391RWE60064\", \"ticket_no\": null }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "description": "ticket_no: null → returns ALL tickets for that VIN (newest first).\nTo get a specific ticket, replace null with the ticket number e.g. \"AIS-TKT-XXXXXXXXXX\"."
+      }
+    },
+    {
+      "name": "8. Mining Ticket Status",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{base_url}}/mining/ticket-status",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"err\": null,\n  \"data\": [\n    { \"vin_no\": \"MAT458391RWE60021\", \"ticket_no\": null },\n    { \"vin_no\": \"MAT458391RWE60098\", \"ticket_no\": null }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "description": "ticket_no: null → returns ALL mining tickets for that VIN (newest first).\nTo get a specific ticket, replace null with the ticket number e.g. \"MIN-TKT-XXXXXXXXXX\"."
+      }
     }
   ]
 }
