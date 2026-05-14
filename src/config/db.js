@@ -10,3 +10,5 @@ const pool = new Pool({
 });
 
 module.exports = pool;
+
+// Last update: 2026-05-14T15:52:00Z - Forcing redeploy to Supabase
