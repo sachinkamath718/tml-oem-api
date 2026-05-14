@@ -62,9 +62,9 @@ const createOrder = async (req, res) => {
 
         // Order-level audit log
         await conn.query(
-            `INSERT INTO order_status_history (order_id, ticket_id, module, to_status, changed_by, notes, metadata)
-             VALUES ($1,$2,'Orders','pending',$3,'Order created',$4)`,
-            [orderId, orderTrackingId, clientId, {
+            `INSERT INTO order_status_history (order_id, stage, to_status, changed_by, notes, metadata)
+             VALUES ($1,'Orders','pending',$2,'Order created',$3)`,
+            [orderId, clientId, {
                 event:             'order_created',
                 timestamp_ist:     createdAtIST,
                 total_vins:        allVehicles.length,
@@ -172,9 +172,9 @@ const createOrder = async (req, res) => {
 
             // Per-vehicle history
             await conn.query(
-                `INSERT INTO order_status_history (order_id, ticket_id, module, vin, to_status, changed_by, notes, metadata)
-                 VALUES ($1,$2,'Orders',$3,'pending',$4,'Vehicle registered in order',$5)`,
-                [orderId, vehicleTrackingId, vehicle.vin, clientId, {
+                `INSERT INTO order_status_history (order_id, stage, vin, to_status, changed_by, notes, metadata)
+                 VALUES ($1,'Orders',$2,'pending',$3,'Vehicle registered in order',$4)`,
+                [orderId, vehicle.vin, clientId, {
                     timestamp_ist:       createdAtIST,
                     vehicle_tracking_id: vehicleTrackingId,
                     ticket_no:           ticketNo,
