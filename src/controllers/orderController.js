@@ -54,7 +54,7 @@ const createOrder = async (req, res) => {
                 orderNumber, order_id, orderTrackingId, clientRefId,
                 customer_details.name, device_type || null,
                 allVehicles.length,
-                customer_details,
+                JSON.stringify(customer_details),
                 clientId,
             ]
         );
@@ -64,12 +64,12 @@ const createOrder = async (req, res) => {
         await conn.query(
             `INSERT INTO order_status_history (order_id, stage, to_status, changed_by, notes, metadata)
              VALUES ($1,'Orders','pending',$2,'Order created',$3)`,
-            [orderId, clientId, {
+            [orderId, clientId, JSON.stringify({
                 event:             'order_created',
                 timestamp_ist:     createdAtIST,
                 total_vins:        allVehicles.length,
                 order_tracking_id: orderTrackingId,
-            }]
+            })]
         );
 
         const tickets = [];
@@ -96,7 +96,7 @@ const createOrder = async (req, res) => {
                     vehicle.make, vehicle.variant || null, vehicle.mfg_year,
                     vehicle.fuel_type, vehicle.emission_type,
                     vehicle.rto_office_code, vehicle.rto_state,
-                    vehicle.products || [],
+                    JSON.stringify(vehicle.products || []),
                     ais140TicketNo, miningTicketNo,
                 ]
             );
@@ -128,15 +128,15 @@ const createOrder = async (req, res) => {
                      VALUES ($1,$2,$3,$4,$5,$6,'pending')`,
                     [
                         ais140TicketNo, vehicle.vin, vehicleTrackingId, orderTrackingId,
-                        {
+                        JSON.stringify({
                             vin: vehicle.vin, engine_no: vehicle.engine_no,
                             reg_number: vehicle.registration_no, vehicle_model: vehicle.model,
                             make: vehicle.make, mfg_year: vehicle.mfg_year,
                             fuel_type: vehicle.fuel_type, emission_type: vehicle.emission_type,
                             rto_office_code: vehicle.rto_office_code, rto_state: vehicle.rto_state,
                             certificate_validity_duration_in_year: ais140Product?.duration_in_years || 2,
-                        },
-                        customer_details,
+                        }),
+                        JSON.stringify(customer_details),
                     ]
                 );
             }
@@ -150,14 +150,14 @@ const createOrder = async (req, res) => {
                      VALUES ($1,$2,$3,$4,$5,$6,'pending')`,
                     [
                         miningTicketNo, vehicle.vin, vehicleTrackingId, orderTrackingId,
-                        {
+                        JSON.stringify({
                             vin: vehicle.vin, engine_no: vehicle.engine_no,
                             reg_number: vehicle.registration_no, vehicle_model: vehicle.model,
                             make: vehicle.make, mfg_year: vehicle.mfg_year,
                             department: miningProduct?.metadata?.department || null,
                             duration_in_year: miningProduct?.duration_in_years || 2,
-                        },
-                        customer_details,
+                        }),
+                        JSON.stringify(customer_details),
                     ]
                 );
             }
@@ -174,13 +174,13 @@ const createOrder = async (req, res) => {
             await conn.query(
                 `INSERT INTO order_status_history (order_id, stage, vin, to_status, changed_by, notes, metadata)
                  VALUES ($1,'Orders',$2,'pending',$3,'Vehicle registered in order',$4)`,
-                [orderId, vehicle.vin, clientId, {
+                [orderId, vehicle.vin, clientId, JSON.stringify({
                     timestamp_ist:       createdAtIST,
                     vehicle_tracking_id: vehicleTrackingId,
                     ticket_no:           ticketNo,
                     ais140_ticket_no:    ais140TicketNo,
                     mining_ticket_no:    miningTicketNo,
-                }]
+                })]
             );
 
             tickets.push({
